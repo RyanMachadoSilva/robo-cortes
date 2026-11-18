@@ -140,40 +140,90 @@ def caixa_camera(caixa, iw, ih):
     return par(x), par(y), par(w), par(h)
 
 
-def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, camera=None):
-    """Gera o vídeo vertical final (LARGURA x ALTURA).
+# Cores da moldura (tema Vice City, limpo)
+COR_FUNDO = "0x0E0E14"
+COR_A = (0xFF, 0x2E, 0x88)   # rosa
+COR_B = (0xFF, 0x9E, 0x3D)   # laranja
+
+
+def _linha_degrade(y, altura, largura, partes=24):
+    """Linha horizontal em degradê rosa -> laranja feita de pequenos retângulos (drawbox)."""
+    filtros = []
+    for k in range(partes):
+        f = k / (partes - 1)
+        cor = "0x%02X%02X%02X" % tuple(int(a + (b - a) * f) for a, b in zip(COR_A, COR_B))
+        x0 = int(largura * k / partes)
+        x1 = int(largura * (k + 1) / partes)
+        filtros.append(f"drawbox=x={x0}:y={y}:w={x1 - x0}:h={altura}:color={cor}@1:t=fill")
+    return filtros
+
+
+def _moldura(nome, W, topo_h, pasta, separador_y=None):
+    """Barra do topo: fundo escuro, nome do streamer, etiqueta GTA VI e linha em degradê."""
+    txt_nome = os.path.join(pasta, "moldura_nome.txt")
+    with open(txt_nome, "w", encoding="utf-8") as f:
+        f.write((nome or "").upper()[:22])
+    tam = int(topo_h * 0.34)
+    meio = (topo_h - 4) // 2
+    filtros = [f"drawbox=x=0:y=0:w={W}:h={topo_h}:color={COR_FUNDO}@1:t=fill"]
+    filtros += _linha_degrade(topo_h - 4, 4, W)
+    filtros += [
+        # bolinha rosa + nome do streamer
+        f"drawbox=x=28:y={meio - 6}:w=12:h=12:color=0x{''.join('%02X' % c for c in COR_A)}@1:t=fill",
+        f"drawtext=fontfile={FONTE}:textfile={txt_nome}:fontsize={tam}:fontcolor=white:x=52:y={meio}-text_h/2",
+        # etiqueta GTA VI
+        f"drawtext=fontfile={FONTE}:text='GTA VI':fontsize={int(tam * 0.82)}:fontcolor=white:"
+        f"box=1:boxcolor=0x{''.join('%02X' % c for c in COR_A)}@1:boxborderw=10:x={W}-text_w-38:y={meio}-text_h/2",
+    ]
+    if separador_y is not None:
+        filtros += _linha_degrade(separador_y - 1, 3, W)
+    return ",".join(filtros)
+
+
+def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, camera=None, nome=""):
+    """Gera o vídeo vertical final (LARGURA x ALTURA), com a moldura no topo.
 
     camera=(x, y, w, h) em pixels: tela dividida (webcam em cima, gameplay embaixo).
     Sem camera: o vídeo inteiro no meio, com o fundo desfocado (nada é cortado).
     """
     W, H = config.LARGURA, config.ALTURA
+    topo_h = int(H * config.MOLDURA_ALTURA) // 2 * 2 if config.MOLDURA_ALTURA > 0 else 0
+    area_h = H - topo_h  # espaço abaixo da moldura
     if camera:
         cx, cy, cw, ch = camera
         cam_h = int(W * ch / cw) // 2 * 2
-        cam_h = max(int(H * 0.28) // 2 * 2, min(cam_h, int(H * 0.45) // 2 * 2))
-        jogo_h = H - cam_h
+        cam_h = max(int(area_h * 0.28) // 2 * 2, min(cam_h, int(area_h * 0.42) // 2 * 2))
+        jogo_h = area_h - cam_h
+        jogo_fg = int(jogo_h * (1 - config.ZOOM_OUT_JOGO)) // 2 * 2  # jogo um pouco menor = menos corte nas laterais
         filtros = [
-            "[0:v]setpts=PTS-STARTPTS,split=2[a][b]",
-            # webcam: recorta e preenche a faixa de cima (corta um pouco se o formato não bater)
+            "[0:v]setpts=PTS-STARTPTS,split=3[a][b][c]",
+            # webcam: recorta e preenche a faixa de cima
             f"[a]crop={cw}:{ch}:{cx}:{cy},scale={W}:{cam_h}:force_original_aspect_ratio=increase,crop={W}:{cam_h}[cam]",
-            # gameplay: o centro da tela, preenchendo a faixa de baixo
-            f"[b]scale=-2:{jogo_h},crop={W}:{jogo_h}[jogo]",
-            "[cam][jogo]vstack[v0]",
+            # gameplay: fundo desfocado + jogo com menos zoom no meio
+            f"[b]scale=-2:{jogo_h},crop={W}:{jogo_h},boxblur=20:4,eq=brightness=-0.2[jbg]",
+            f"[c]scale=-2:{jogo_fg},crop='min(iw,{W})':{jogo_fg}[jfg]",
+            f"[jbg][jfg]overlay=(W-w)/2:(H-h)/2[jogo]",
+            f"[cam][jogo]vstack,pad={W}:{H}:0:{topo_h}:color={COR_FUNDO}[v0]",
         ]
-        topo_texto = cam_h          # o gancho fica logo abaixo da câmera, no começo do jogo
-        base_livre = config.LEGENDA_ALTURA * H  # legenda perto do rodapé
+        separador = topo_h + cam_h
+        topo_texto = separador      # o gancho fica logo abaixo da câmera, no começo do jogo
     else:
         fg_h = int(W * 9 / 16) // 2 * 2
-        fg_y = (H - fg_h) // 2
+        fg_y = topo_h + (area_h - fg_h) // 2
         filtros = [
             "[0:v]setpts=PTS-STARTPTS,split=2[a][b]",
             f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=20:4,eq=brightness=-0.15[bg]",
             f"[b]scale={W}:{fg_h}[fg]",
             f"[bg][fg]overlay=0:{fg_y}[v0]",
         ]
-        topo_texto = None
-        base_livre = config.LEGENDA_ALTURA * H
-    atual = "v0"
+        separador = None
+        topo_texto = topo_h + int(H * 0.02) if topo_h else None
+    if topo_h:
+        filtros.append(f"[v0]{_moldura(nome, W, topo_h, pasta, separador)}[vm]")
+        atual = "vm"
+    else:
+        atual = "v0"
+    base_livre = config.LEGENDA_ALTURA * H
 
     srt = os.path.join(pasta, "legenda.srt")
     if legendas and escrever_srt(legendas, srt):
@@ -192,7 +242,7 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
         with open(txt, "w", encoding="utf-8") as f:
             f.write("\n".join(textwrap.wrap(gancho.upper(), 18)[:2]))
         tam = int(W * 0.075)
-        y_texto = str(topo_texto + int(H * 0.02)) if topo_texto else str(int(H * 0.08))  # nunca em cima do rosto
+        y_texto = str(topo_texto + int(H * 0.02)) if topo_texto else str(int(H * 0.08))  # nunca em cima do rosto/moldura
         filtros.append(
             f"[{atual}]drawtext=fontfile={FONTE}:textfile={txt}:fontsize={tam}:fontcolor=white:"
             f"borderw=4:bordercolor=black:line_spacing=8:x=(w-text_w)/2:y={y_texto}[v2]"

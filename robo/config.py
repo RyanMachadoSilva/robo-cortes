@@ -79,6 +79,8 @@ LARGURA = _int("LARGURA", 720)            # vídeo final vertical: LARGURA x ALT
 ALTURA = _int("ALTURA", 1280)
 CRF = _int("CRF", 23)
 LEGENDA_TAMANHO = _float("LEGENDA_TAMANHO", 14)  # tamanho da legenda (era 17)
+MOLDURA_ALTURA = _float("MOLDURA_ALTURA", 0.065)  # barra do topo (fração da altura; 0 = sem moldura)
+ZOOM_OUT_JOGO = _float("ZOOM_OUT_JOGO", 0.15)     # quanto o jogo encolhe na tela dividida (0.15 = 15%)
 LEGENDA_ALTURA = _float("LEGENDA_ALTURA", 0.11)  # distância da legenda até o rodapé (fração da altura)
 APAGAR_PENDENTES_H = _int("APAGAR_PENDENTES_H", 24)
 

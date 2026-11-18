@@ -59,6 +59,8 @@ Se os cookies vencerem, o robô avisa no WhatsApp.
 |---|---|---|
 | `INICIO_ANTES_PICO_S` | 5 | O corte começa X s antes do pico do chat. Começando atrasado? Suba para 8 ou 10 |
 | `MIN_DEPOIS_PICO_S` | 6 | O fim (primeira pausa do streamer) só vale depois de X s do pico |
+| `ZOOM_OUT_JOGO` | 0.15 | Na tela dividida, quanto o jogo encolhe para mostrar mais das laterais (0 = preenche tudo) |
+| `MOLDURA_ALTURA` | 0.065 | Altura da barra do topo (nome do streamer + GTA VI). 0 = sem moldura |
 | `LEGENDA_TAMANHO` | 14 | Tamanho da legenda (maior = 16, menor = 12) |
 | `LEGENDA_ALTURA` | 0.11 | Distância da legenda até o rodapé (0.15 = mais alto, 0.08 = mais baixo) |
 | `NOTA_MINIMA` | 6 | Nota mínima da IA para o corte chegar em você. Muito corte ruim? Suba. Pouco corte? Desça |

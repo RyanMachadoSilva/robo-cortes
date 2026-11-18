@@ -116,14 +116,15 @@ class Editor(threading.Thread):
             junto = tem_x and extra == "en" and idioma == "pt" and config.VERSAO_EN == "junto"
             leg_principal = [{**l, "texto_extra": l["texto_x"] if junto else ""} for l in legendas]
             saida_x = None
+            nome_canal = self.live["nome"]
             with RENDER:
                 inicio_render = time.time()
-                corte.renderizar(lista, desl + ini, fim - ini, leg_principal, gancho, saida, pasta, camera)
+                corte.renderizar(lista, desl + ini, fim - ini, leg_principal, gancho, saida, pasta, camera, nome_canal)
                 log.info("corte renderizado em %.0fs (%.0fs de vídeo)", time.time() - inicio_render, fim - ini)
                 if tem_x and not junto:
                     saida_x = saida.replace(".mp4", f"_{extra}.mp4")
                     leg_x = [{**l, "texto": l["texto_x"]} for l in legendas]
-                    corte.renderizar(lista, desl + ini, fim - ini, leg_x, gancho_x or gancho, saida_x, pasta, camera)
+                    corte.renderizar(lista, desl + ini, fim - ini, leg_x, gancho_x or gancho, saida_x, pasta, camera, nome_canal)
                     log.info("versão em %s pronta", extra)
 
             nome_canal = self.live["nome"]
