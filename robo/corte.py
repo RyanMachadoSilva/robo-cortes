@@ -1,6 +1,7 @@
 """Monta o corte: junta os pedaços gravados, recorta, deixa vertical, põe legenda e o gancho no topo."""
 import logging
 import os
+import re
 import subprocess
 import textwrap
 
@@ -24,7 +25,7 @@ def preparar_janela(ini, fim, pasta, pasta_segmentos):
             f.write(f"file '{p}'\n")
     comeco = max(ini, segs[0][0])
     final = min(fim, segs[-1][0] + config.SEGMENTO_S)
-    return lista, comeco - segs[0][0], max(0.0, final - comeco)
+    return lista, comeco - segs[0][0], max(0.0, final - comeco), comeco
 
 
 def extrair_audio(lista, deslocamento, duracao):
@@ -38,6 +39,33 @@ def extrair_audio(lista, deslocamento, duracao):
     if r.returncode != 0:
         raise RuntimeError("ffmpeg (áudio): " + r.stderr.decode(errors="ignore").strip()[-300:])
     return r.stdout
+
+
+def respiros(audio_mp3):
+    """Momentos (em s, relativos ao áudio) em que o volume cai SILENCIO_DB abaixo da média por SILENCIO_MIN_S."""
+    def ffmpeg(filtro):
+        r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", "pipe:0", "-af", filtro, "-f", "null", "-"],
+                           input=audio_mp3, capture_output=True, timeout=60)
+        return r.stderr.decode(errors="ignore")
+
+    m = re.search(r"mean_volume:\s*(-?[\d.]+) dB", ffmpeg("volumedetect"))
+    if not m:
+        return []
+    limite = float(m.group(1)) - config.SILENCIO_DB
+    saida = ffmpeg(f"silencedetect=noise={limite:.1f}dB:d={config.SILENCIO_MIN_S}")
+    return [float(x) for x in re.findall(r"silence_start:\s*(-?[\d.]+)", saida)]
+
+
+def escolher_fim(audio_mp3, pico, ini, dur, fim_ia=None):
+    """Fim do corte: primeiro respiro do streamer pelo menos MIN_DEPOIS_PICO_S depois do pico."""
+    minimo = pico + config.MIN_DEPOIS_PICO_S
+    maximo = min(dur, ini + config.DURACAO_MAX_S)
+    for t in respiros(audio_mp3):
+        if minimo <= t <= maximo:
+            return t + 0.3, "respiro"
+    if fim_ia and minimo <= fim_ia <= maximo:
+        return fim_ia, "IA"
+    return min(maximo, pico + config.DEPOIS_S - 5), "limite"
 
 
 def _tempo_srt(s):

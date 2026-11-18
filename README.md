@@ -3,7 +3,8 @@
 Vigia canais do YouTube (padrão: **GameplayRJ** em português e **IShowSpeed** em inglês, com versão extra legendada em português, só lives com "GTA" no título) e grava até 2 lives ao mesmo tempo (os cortes são montados um por vez, para não pesar a VPS). Quando a live abre, grava em pedaços curtos, lê o chat e mede o volume do áudio. Quando o chat explode ("KKKK", "clipa", muita mensagem de uma vez) ou o volume dispara, ele:
 
 1. Pega ~1 minuto ao redor do momento
-2. Manda o áudio + o chat para o Gemini, que dá uma nota, escolhe o início e o fim, escreve título, gancho e legendas
+2. Manda o áudio + o chat para o Gemini, que dá uma nota e escreve título, gancho e legendas
+   (o corte começa 5s antes do pico do chat e termina na primeira pausa do streamer depois dele)
 3. Monta o vídeo vertical (720x1280) com o gancho no topo e a legenda embaixo
 4. Manda para o seu WhatsApp pelo **assistente-wpp**
 
@@ -54,6 +55,8 @@ Se os cookies vencerem, o robô avisa no WhatsApp.
 
 | Variável | Padrão | Para quê |
 |---|---|---|
+| `INICIO_ANTES_PICO_S` | 5 | O corte começa X s antes do pico do chat. Começando atrasado? Suba para 8 ou 10 |
+| `MIN_DEPOIS_PICO_S` | 6 | O fim (primeira pausa do streamer) só vale depois de X s do pico |
 | `NOTA_MINIMA` | 6 | Nota mínima da IA para o corte chegar em você. Muito corte ruim? Suba. Pouco corte? Desça |
 | `MIN_ENTRE_CORTES_S` | 600 | No máximo 1 corte a cada 10 min |
 | `CHAT_MULTIPLICADOR` / `CHAT_MIN_MSGS` | 3 / 10 | Sensibilidade ao chat |

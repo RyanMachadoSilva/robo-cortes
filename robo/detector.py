@@ -77,7 +77,37 @@ class Detector:
         if not motivos or agora - self.ultimo_corte < config.MIN_ENTRE_CORTES_S:
             return None
         self.ultimo_corte = agora
-        momento = agora - config.ATRASO_CHAT_S
+        momento = self.pico(agora, recentes, chat_mudo)
         motivo = ", ".join(motivos)
         self.ao_detectar(momento, motivo)
         return motivo
+
+    def refinar(self, momento):
+        """Na hora de montar o corte, já com os segundos seguintes do chat: acha o ponto mais concentrado
+        entre 8s antes e 15s depois do momento detectado."""
+        with self.trava:
+            tempos = sorted(m[0] for m in self.msgs if momento - 8 <= m[0] <= momento + 15)
+        if len(tempos) < 5:
+            return momento
+        melhor, melhor_n = momento, 0
+        for t in tempos:
+            n = sum(1 for x in tempos if t <= x < t + 3)
+            if n > melhor_n:
+                melhor, melhor_n = t + 1.5, n
+        return melhor
+
+    def pico(self, agora, recentes, chat_mudo):
+        """Segundo exato do pico: onde o chat mais se concentrou (janela de 3s) ou, sem chat, o mais alto do áudio."""
+        if recentes and not chat_mudo:
+            tempos = sorted(m[0] for m in recentes)
+            melhor, melhor_n = tempos[-1], 0
+            for t in tempos:
+                n = sum(1 for x in tempos if t <= x < t + 3)
+                if n > melhor_n:
+                    melhor, melhor_n = t + 1.5, n
+            return melhor
+        with self.trava:
+            vol = [(ts, db) for ts, db in self.volumes if ts >= agora - 40]
+        if vol:
+            return max(vol, key=lambda x: x[1])[0]
+        return agora - config.ATRASO_CHAT_S

@@ -43,7 +43,7 @@ class Editor(threading.Thread):
                 return
             momento, motivo, forcado = item
             # espera os pedaços depois do momento terminarem de gravar
-            espera = momento + config.DEPOIS_S + config.SEGMENTO_S + 5 - time.time()
+            espera = momento + config.DEPOIS_S + config.SEGMENTO_S + 15 - time.time()  # +15: folga para o refino do pico
             if espera > 0:
                 time.sleep(espera)
             try:
@@ -53,22 +53,30 @@ class Editor(threading.Thread):
                 assistente.texto(f"⚠️ Erro ao montar um corte de {self.live['nome']}: {str(e)[:200]}")
 
     def processar(self, momento, motivo, forcado=False):
+        if not forcado and "sem chat" not in motivo:
+            refinado = self.detector_ref().refinar(momento)
+            if abs(refinado - momento) > 0.5:
+                log.info("pico do chat refinado: %+.1fs", refinado - momento)
+            momento = refinado
         pasta = os.path.join(config.PASTA_TMP, f"{self.live['nome']}_{int(momento)}")
         try:
             janela = corte.preparar_janela(momento - config.ANTES_S, momento + config.DEPOIS_S, pasta, self.live["pasta"])
             if not janela or janela[2] < 10:
                 log.info("trecho não está mais gravado; pulando")
                 return
-            lista, desl, dur = janela
+            lista, desl, dur, comeco = janela
+            pico = momento - comeco  # segundo do pico dentro do trecho gravado
             audio = corte.extrair_audio(lista, desl, dur)
-            chat = self.detector_ref().textos(momento - 30, momento + config.ATRASO_CHAT_S + 10)
+            chat = self.detector_ref().textos(momento - 30, momento + 10)
             idioma = self.live.get("idioma", "pt")
             extra = self.live.get("extra")  # versão extra em outro idioma ("en", "pt" ou None)
             r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"], idioma, extra)
 
             titulo_x = gancho_x = ""
             if r is None:  # IA indisponível: manda o trecho inteiro, sem legenda
-                ini, fim, legendas, nota = 0.0, dur, [], None
+                ini = max(0.0, pico - config.INICIO_ANTES_PICO_S)
+                fim, como = corte.escolher_fim(audio, pico, ini, dur)
+                legendas, nota = [], None
                 titulo, gancho, sobre = f"Momento da live: {self.live['titulo']}"[:70], "", f"(sem IA) {motivo}"
             else:
                 nota = int(r.get("nota") or 0)
@@ -76,8 +84,13 @@ class Editor(threading.Thread):
                     self.descartados += 1
                     log.info("descartado pela IA (nota %s): %s", nota, r.get("motivo", ""))
                     return
-                ini = min(max(float(r.get("inicio") or 0), 0.0), max(dur - 10, 0.0))
-                fim = min(max(float(r.get("fim") or dur), ini + 10), dur, ini + 58)
+                ini = max(0.0, pico - config.INICIO_ANTES_PICO_S)
+                try:
+                    fim_ia = float(r.get("fim")) if r.get("fim") is not None else None
+                except (TypeError, ValueError):
+                    fim_ia = None
+                fim, como = corte.escolher_fim(audio, pico, ini, dur, fim_ia)
+                log.info("corte: começa %.0fs antes do pico, termina no %s (%.0fs)", pico - ini, como, fim - ini)
                 legendas = []
                 for leg in r.get("legendas") or []:
                     try:

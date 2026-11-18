@@ -64,9 +64,14 @@ SEGMENTO_S = _int("SEGMENTO_S", 10)       # tamanho de cada pedaço gravado
 BUFFER_MIN = _int("BUFFER_MIN", 15)       # minutos de live guardados no disco (o resto é apagado)
 
 # Corte
-ANTES_S = _int("ANTES_S", 45)             # segundos antes do pico que entram na janela analisada
-DEPOIS_S = _int("DEPOIS_S", 20)           # segundos depois do pico
-ATRASO_CHAT_S = _int("ATRASO_CHAT_S", 8)  # o chat reage alguns segundos depois do momento
+ANTES_S = _int("ANTES_S", 40)             # segundos antes do pico que a IA ouve (contexto)
+DEPOIS_S = _int("DEPOIS_S", 35)           # segundos depois do pico gravados para achar o fim
+ATRASO_CHAT_S = _int("ATRASO_CHAT_S", 8)  # (só para o modo sem chat: o volume chega antes do chat)
+INICIO_ANTES_PICO_S = _float("INICIO_ANTES_PICO_S", 5)  # o corte começa X s antes do pico do chat
+MIN_DEPOIS_PICO_S = _float("MIN_DEPOIS_PICO_S", 6)      # o fim só pode vir X s depois do pico
+SILENCIO_DB = _float("SILENCIO_DB", 10)                 # "respiro" = X dB abaixo do volume médio do trecho
+SILENCIO_MIN_S = _float("SILENCIO_MIN_S", 0.5)          # duração mínima do respiro
+DURACAO_MAX_S = _float("DURACAO_MAX_S", 58)
 MIN_ENTRE_CORTES_S = _int("MIN_ENTRE_CORTES_S", 600)  # no máximo 1 corte a cada 10 min
 MAX_CORTES_POR_LIVE = _int("MAX_CORTES_POR_LIVE", 60)
 NOTA_MINIMA = _int("NOTA_MINIMA", 6)      # nota (0-10) mínima dada pela IA para te mandar o corte
