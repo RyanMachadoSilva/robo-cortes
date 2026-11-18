@@ -3,6 +3,7 @@ import collections
 import json
 import logging
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import config, estado
@@ -12,6 +13,7 @@ log = logging.getLogger("api")
 status_lives = {}  # nome do canal -> {"titulo", "cortes", "desde"}
 diagnosticos = {}  # nome do canal -> função que devolve o texto de diagnóstico da live
 forcadores = {}  # nome do canal -> função que pede um corte do último minuto
+_limpeza_pedida = 0.0  # quando pediram "limpar cortes" (precisa confirmar em 2 min)
 
 
 class MemoriaLog(logging.Handler):
@@ -33,6 +35,26 @@ def executar(acao, cid=None):
     if acao == "log":
         linhas = [l[15:] if len(l) > 15 else l for l in list(memoria_log.linhas)[-25:]]  # tira a data
         return "*Últimas linhas do log:*\n" + ("\n".join(l[:160] for l in linhas) or "(vazio)")
+    global _limpeza_pedida
+    if acao == "limpar":
+        import glob
+        import os
+
+        n = len(estado.cortes())
+        arquivos = glob.glob(os.path.join(config.PASTA_CORTES, "*.mp4"))
+        mb = sum(os.path.getsize(a) for a in arquivos if os.path.exists(a)) / 1e6
+        _limpeza_pedida = time.time()
+        return (
+            f"🧹 Isso vai apagar *{n} cortes* ({len(arquivos)} vídeos, {mb:.0f} MB) da VPS e zerar o contador "
+            "(o próximo volta a ser o #1). A gravação da live não é afetada.\n\n"
+            "Pra confirmar, manda *confirmar limpeza* em até 2 minutos."
+        )
+    if acao == "confirmar_limpeza":
+        if time.time() - _limpeza_pedida > 120:
+            return "Não tem limpeza pendente (ou passou de 2 minutos). Manda *limpar cortes* de novo."
+        _limpeza_pedida = 0.0
+        n, apagados, bytes_ = estado.limpar_tudo()
+        return f"✅ Limpo: {n} cortes e {apagados} vídeos apagados ({bytes_ / 1e6:.0f} MB liberados). Contador zerado."
     if acao == "forcar":
         if not forcadores:
             return "Nenhuma live sendo gravada agora, então não tem o que cortar."
@@ -70,7 +92,7 @@ def executar(acao, cid=None):
     if acao == "postei":
         estado.remover(c["id"])
         return f"🚀 Boa! Apaguei o corte #{c['id']} da VPS."
-    return "Comandos: ok, não, postei (com o número do corte), cortes, corte agora, diag ou log."
+    return "Comandos: ok, não, postei (com o número do corte), cortes, corte agora, limpar cortes, diag ou log."
 
 
 class _Handler(BaseHTTPRequestHandler):

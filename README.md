@@ -18,6 +18,7 @@ Você responde no WhatsApp:
 | `postei 12` | Apaga da VPS (você já postou) |
 | `cortes` | Mostra se está gravando e os cortes pendentes |
 | `corte agora` | Corta o último minuto da live na hora (sem esperar pico, sem filtro de nota) |
+| `limpar cortes` | Apaga todos os cortes da VPS e zera o contador (pede `confirmar limpeza`) |
 | `diag` | Diagnóstico da live: gravação, chat, volume e cortes |
 | `log` | Últimas linhas do log do robô |
 

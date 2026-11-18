@@ -70,6 +70,30 @@ def cortes():
         return sorted(_dados["cortes"].values(), key=lambda c: c["id"])
 
 
+def limpar_tudo():
+    """Apaga todos os cortes (arquivos e registros), inclusive arquivos soltos, e zera o contador."""
+    import glob
+
+    with _trava:
+        arquivos = set()
+        for c in _dados["cortes"].values():
+            arquivos.update(c.get(k) for k in ("arquivo", "arquivo_en", "arquivo_extra") if c.get(k))
+        arquivos.update(glob.glob(os.path.join(config.PASTA_CORTES, "*.mp4")))
+        n_cortes = len(_dados["cortes"])
+        _dados["cortes"] = {}
+        _dados["seq"] = 1
+        salvar()
+    apagados, bytes_ = 0, 0
+    for a in arquivos:
+        try:
+            bytes_ += os.path.getsize(a)
+            os.remove(a)
+            apagados += 1
+        except OSError:
+            pass
+    return n_cortes, apagados, bytes_
+
+
 def ultimo_pendente():
     pend = [c for c in cortes() if c["status"] in ("pendente", "aprovado")]
     return pend[-1] if pend else None
