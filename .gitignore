@@ -1,0 +1,5 @@
+.env
+config/cookies.txt
+__pycache__/
+*.pyc
+dados/

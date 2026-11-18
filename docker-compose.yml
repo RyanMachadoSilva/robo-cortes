@@ -1,0 +1,25 @@
+# Sobe o robô:  docker compose up -d --build
+# Acompanhar:   docker compose logs -f
+services:
+  robo:
+    build: .
+    env_file: .env
+    volumes:
+      - dados:/dados          # pedaços da live, cortes e estado
+      - ./config:/config:ro   # coloque aqui o cookies.txt do YouTube
+    networks: [robos]         # rede compartilhada com o assistente do WhatsApp
+    restart: unless-stopped
+    cpus: "0.7"               # deixa CPU sobrando para o sistema da oficina e o assistente
+    mem_limit: 1500m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  dados:
+
+networks:
+  robos:
+    external: true            # criada pelo docker-compose do assistente-wpp
