@@ -103,7 +103,12 @@ PALAVRAS_MIN = _int("PALAVRAS_MIN", 5)                  # mensagens com "kkkk", 
 # IA (Gemini)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MODELO = os.environ.get("MODELO", "gemini-3.5-flash-lite")
-MODELO_RESERVA = os.environ.get("MODELO_RESERVA", "gemini-3.5-flash-lite")
+# Reservas (separadas por vírgula), tentadas em ordem quando o principal está congestionado ou sem cota
+MODELOS_RESERVA = [m.strip() for m in os.environ.get(
+    "MODELOS_RESERVA", os.environ.get("MODELO_RESERVA", "") or "gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-flash-lite-latest"
+).split(",") if m.strip()]
+if os.environ.get("MODELO_RESERVA", "") == os.environ.get("MODELO", "gemini-3.5-flash-lite"):
+    MODELOS_RESERVA = ["gemini-3.1-flash-lite", "gemini-2.5-flash-lite", "gemini-flash-lite-latest"]  # reserva igual ao principal não ajuda
 
 # Integração com o assistente do WhatsApp
 ASSISTENTE_URL = os.environ.get("ASSISTENTE_URL", "http://assistente:3100").rstrip("/")

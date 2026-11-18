@@ -10,7 +10,6 @@ from . import config
 
 log = logging.getLogger("ia")
 
-_pausado_ate = 0.0  # se o modelo principal congestionar, usa a reserva por 10 min
 
 PROMPT = """Você é editor de cortes de live para YouTube Shorts e TikTok, em português do Brasil.
 Live: "{titulo}" (canal {canal}).
@@ -96,7 +95,6 @@ def _normalizar(dados):
 
 def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", idioma="pt", extra=None, quadro=None):
     """Retorna o dicionário da IA, ou None se não deu para analisar (sem chave, sem cota...)."""
-    global _pausado_ate
     if not config.GEMINI_API_KEY:
         return None
     texto = PROMPT.format(
@@ -115,30 +113,38 @@ def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", id
         ]}],
         "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 8000},
     }
-    modelos = [config.MODELO]
-    if config.MODELO_RESERVA and config.MODELO_RESERVA != config.MODELO:
-        modelos = [config.MODELO_RESERVA] if time.time() < _pausado_ate else [config.MODELO, config.MODELO_RESERVA]
-    for i, modelo in enumerate(modelos):
-        try:
-            resp = _chamar(modelo, corpo, 40 if i < len(modelos) - 1 else 90)
-            partes = resp.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-            bruto = "".join(p.get("text", "") for p in partes if not p.get("thought"))
-            bruto = bruto.strip().removeprefix("```json").removesuffix("```").strip()
-            return _normalizar(json.loads(bruto))
-        except urllib.error.HTTPError as e:
-            detalhe = e.read().decode(errors="ignore")[:200]
-            log.warning("Gemini %s em %s: %s", e.code, modelo, detalhe)
-            if e.code in (429, 500, 503) and i < len(modelos) - 1:
-                _pausado_ate = time.time() + 600
-                continue
-            return None
-        except (TimeoutError, urllib.error.URLError) as e:
-            log.warning("Gemini sem resposta em %s: %s", modelo, e)
-            if i < len(modelos) - 1:
-                _pausado_ate = time.time() + 600
-                continue
-            return None
-        except (json.JSONDecodeError, KeyError, IndexError) as e:
-            log.warning("resposta da IA ilegível: %s", e)
-            return None
+    # Modelo principal + reservas diferentes; cada um com até 3 tentativas quando está congestionado (503)
+    modelos = []
+    for m in [config.MODELO, *config.MODELOS_RESERVA]:
+        if m and m not in modelos:
+            modelos.append(m)
+    for modelo in modelos:
+        for tentativa in range(3):
+            try:
+                resp = _chamar(modelo, corpo, 90)
+                partes = resp.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                bruto = "".join(p.get("text", "") for p in partes if not p.get("thought"))
+                bruto = bruto.strip().removeprefix("```json").removesuffix("```").strip()
+                dados = _normalizar(json.loads(bruto))
+                if dados is not None:
+                    if modelo != config.MODELO or tentativa:
+                        log.info("IA respondeu com %s (tentativa %s)", modelo, tentativa + 1)
+                    return dados
+                log.warning("resposta da IA sem o formato esperado (%s)", modelo)
+                break
+            except urllib.error.HTTPError as e:
+                detalhe = " ".join(e.read().decode(errors="ignore").split())[:120]
+                log.warning("Gemini %s em %s (tentativa %s): %s", e.code, modelo, tentativa + 1, detalhe)
+                if e.code in (500, 503) and tentativa < 2:
+                    time.sleep(5 * (tentativa + 1) ** 2)  # 5s, 20s
+                    continue
+                break  # 429 (cota) ou outro erro: vai para o próximo modelo
+            except (TimeoutError, urllib.error.URLError) as e:
+                log.warning("Gemini sem resposta em %s: %s", modelo, e)
+                break
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                log.warning("resposta da IA ilegível (%s): %s", modelo, e)
+                break
+    log.error("nenhum modelo da IA respondeu; corte vai sem legenda")
+    return None
     return None
