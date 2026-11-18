@@ -7,14 +7,14 @@ import time
 from . import config
 
 _trava = threading.RLock()
-_dados = {"seq": 1, "cortes": {}}
+_dados = {"seq": 1, "cortes": {}, "cameras": {}}
 
 
 def carregar():
     global _dados
     try:
         with open(config.ARQUIVO_ESTADO, encoding="utf-8") as f:
-            _dados = {"seq": 1, "cortes": {}, **json.load(f)}
+            _dados = {"seq": 1, "cortes": {}, "cameras": {}, **json.load(f)}
     except (FileNotFoundError, json.JSONDecodeError):
         pass
 
@@ -81,7 +81,7 @@ def limpar_tudo():
         arquivos.update(glob.glob(os.path.join(config.PASTA_CORTES, "*.mp4")))
         n_cortes = len(_dados["cortes"])
         _dados["cortes"] = {}
-        _dados["seq"] = 1
+        _dados["seq"] = 1  # a posição das webcams (cameras) é mantida
         salvar()
     apagados, bytes_ = 0, 0
     for a in arquivos:
@@ -92,6 +92,18 @@ def limpar_tudo():
         except OSError:
             pass
     return n_cortes, apagados, bytes_
+
+
+def camera(nome):
+    """Última posição conhecida da webcam do canal (ou a padrão do config)."""
+    with _trava:
+        return _dados.get("cameras", {}).get(nome.lower()) or config.CAMERAS_PADRAO.get(nome.lower())
+
+
+def salvar_camera(nome, caixa):
+    with _trava:
+        _dados.setdefault("cameras", {})[nome.lower()] = [round(float(v)) for v in caixa]
+        salvar()
 
 
 def ultimo_pendente():

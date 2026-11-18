@@ -72,10 +72,17 @@ class Editor(threading.Thread):
             extra = self.live.get("extra")  # versão extra em outro idioma ("en", "pt" ou None)
             quadro = corte.extrair_quadro(lista, desl + pico)
             r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"], idioma, extra, quadro)
-            camera = None
+            dims = corte.dimensoes(lista)
+            camera, origem = None, ""
             if r and r.get("camera"):
-                camera = corte.caixa_camera(r["camera"], *corte.dimensoes(lista))
-            log.info("layout: %s", f"webcam em cima {camera}" if camera else "tela inteira (sem webcam detectada)")
+                camera = corte.caixa_camera(r["camera"], *dims)
+                if camera:
+                    estado.salvar_camera(self.live["nome"], r["camera"])  # lembra para os próximos cortes
+                    origem = "detectada pela IA"
+            if not camera and estado.camera(self.live["nome"]):
+                camera = corte.caixa_camera(estado.camera(self.live["nome"]), *dims)
+                origem = "posição salva do canal"
+            log.info("layout: %s", f"webcam em cima ({origem})" if camera else "sem webcam: jogo grande no meio")
 
             titulo_x = gancho_x = ""
             if r is None:  # IA indisponível: manda o trecho inteiro, sem legenda

@@ -6,7 +6,7 @@ Vigia canais do YouTube (padrão: **GameplayRJ** em português e **IShowSpeed** 
 2. Manda o áudio + o chat para o Gemini, que dá uma nota e escreve título, gancho e legendas
    (o corte começa 5s antes do pico do chat e termina na primeira pausa do streamer depois dele)
 3. Monta o vídeo vertical Full HD (1080x1920): se a IA achar a webcam do streamer, fica **webcam em cima e gameplay embaixo**;
-   sem webcam, a tela inteira no meio (nada cortado), com gancho e legenda
+   se a IA não achar, usa a última posição conhecida da webcam do canal; sem webcam, o jogo grande no meio
 4. Manda para o seu WhatsApp pelo **assistente-wpp**
 
 Você responde no WhatsApp:
@@ -65,7 +65,9 @@ Se os cookies vencerem, o robô avisa no WhatsApp.
 | `DOCUMENTO_NO_OK` | 1 | No "ok", manda também o arquivo original como documento (0 = desliga) |
 | `ZOOM_OUT_JOGO` | 0.15 | Na tela dividida, quanto o jogo encolhe para mostrar mais das laterais (0 = preenche tudo) |
 | `MOLDURA_ALTURA` | 0.065 | Altura da barra do topo (nome do streamer + GTA VI). 0 = sem moldura |
-| `LEGENDA_TAMANHO` | 14 | Tamanho da legenda (maior = 16, menor = 12) |
+| `LEGENDA_TAMANHO` | 12 | Tamanho da legenda (maior = 14, menor = 10) |
+| `LEGENDA_PALAVRAS` | 4 | Máximo de palavras por bloco de legenda |
+| `CAMERA_MAX` | 0.34 | Altura máxima da webcam na tela dividida (0.40 = maior, 0.28 = menor) |
 | `LEGENDA_ALTURA` | 0.11 | Distância da legenda até o rodapé (0.15 = mais alto, 0.08 = mais baixo) |
 | `NOTA_MINIMA` | 6 | Nota mínima da IA para o corte chegar em você. Muito corte ruim? Suba. Pouco corte? Desça |
 | `MIN_ENTRE_CORTES_S` | 600 | No máximo 1 corte a cada 10 min |

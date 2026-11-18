@@ -76,9 +76,34 @@ def _tempo_srt(s):
     return f"{h:02d}:{m:02d}:{seg:02d},{ms:03d}"
 
 
+def quebrar_legendas(legendas, max_palavras=None):
+    """Divide blocos longos em pedaços de até max_palavras, repartindo o tempo pelo número de palavras."""
+    max_palavras = max_palavras or config.LEGENDA_PALAVRAS
+    saida = []
+    for leg in legendas:
+        try:
+            ini, fim, texto = float(leg["inicio"]), float(leg["fim"]), str(leg.get("texto") or "").strip()
+        except (KeyError, TypeError, ValueError):
+            continue
+        palavras = texto.split()
+        if len(palavras) <= max_palavras or leg.get("texto_extra") or fim <= ini:
+            saida.append(leg)
+            continue
+        pedacos = [palavras[i:i + max_palavras] for i in range(0, len(palavras), max_palavras)]
+        if len(pedacos[-1]) == 1 and len(pedacos) > 1:  # não deixa uma palavra sozinha no fim
+            pedacos[-2].append(pedacos.pop()[0])
+        total, t = len(palavras), ini
+        for p in pedacos:
+            d = (fim - ini) * len(p) / total
+            saida.append({**leg, "inicio": t, "fim": t + d, "texto": " ".join(p)})
+            t += d
+    return saida
+
+
 def escrever_srt(legendas, caminho):
     """legendas: [{'inicio','fim','texto'}] já relativas ao começo do corte."""
     n = 0
+    legendas = quebrar_legendas(legendas)
     with open(caminho, "w", encoding="utf-8") as f:
         for leg in legendas:
             try:
@@ -194,7 +219,7 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
     if camera:
         cx, cy, cw, ch = camera
         cam_h = int(W * ch / cw) // 2 * 2
-        cam_h = max(int(area_h * 0.28) // 2 * 2, min(cam_h, int(area_h * 0.42) // 2 * 2))
+        cam_h = max(int(area_h * config.CAMERA_MIN) // 2 * 2, min(cam_h, int(area_h * config.CAMERA_MAX) // 2 * 2))
         jogo_h = area_h - cam_h
         jogo_fg = int(jogo_h * (1 - config.ZOOM_OUT_JOGO)) // 2 * 2  # jogo um pouco menor = menos corte nas laterais
         filtros = [
@@ -211,12 +236,13 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
         separador = topo_h + cam_h
         topo_texto = separador      # o gancho fica logo abaixo da câmera, no começo do jogo
     else:
-        fg_h = int(W * 9 / 16) // 2 * 2
+        # sem webcam: jogo grande (centro em 4:3, cortando um pouco das laterais) com fundo desfocado
+        fg_h = int(W * 3 / 4) // 2 * 2
         fg_y = topo_h + (area_h - fg_h) // 2
         filtros = [
             "[0:v]setpts=PTS-STARTPTS,split=2[a][b]",
             f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=20:4,eq=brightness=-0.15[bg]",
-            f"[b]scale={W}:{fg_h}:flags=lanczos[fg]",
+            f"[b]crop=ih*4/3:ih,scale={W}:{fg_h}:flags=lanczos[fg]",
             f"[bg][fg]overlay=0:{fg_y}[v0]",
         ]
         separador = None

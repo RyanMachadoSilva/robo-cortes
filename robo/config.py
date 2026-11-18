@@ -80,7 +80,13 @@ ALTURA = _int("ALTURA", 1920)
 CRF = _int("CRF", 20)                     # menor = mais qualidade (e arquivo maior)
 NITIDEZ_CAMERA = _float("NITIDEZ_CAMERA", 0.8)  # filtro de nitidez na webcam (0 = desliga)
 DOCUMENTO_NO_OK = os.environ.get("DOCUMENTO_NO_OK", "1") != "0"  # no "ok", manda o arquivo original como documento
-LEGENDA_TAMANHO = _float("LEGENDA_TAMANHO", 14)  # tamanho da legenda (era 17)
+LEGENDA_TAMANHO = _float("LEGENDA_TAMANHO", 12)  # tamanho da legenda
+LEGENDA_PALAVRAS = _int("LEGENDA_PALAVRAS", 4)    # no máximo X palavras por bloco de legenda
+CAMERA_MAX = _float("CAMERA_MAX", 0.34)           # altura máxima da webcam na tela dividida (fração da área)
+CAMERA_MIN = _float("CAMERA_MIN", 0.26)
+# Posição da webcam de cada canal ([ymin, xmin, ymax, xmax] de 0 a 1000), usada quando a IA não acha a câmera.
+# O robô atualiza sozinho sempre que a IA detecta; estes são só os valores iniciais.
+CAMERAS_PADRAO = {"gameplayrj": [97, 782, 312, 997], "ishowspeed": [427, 0, 651, 203]}
 MOLDURA_ALTURA = _float("MOLDURA_ALTURA", 0.065)  # barra do topo (fração da altura; 0 = sem moldura)
 ZOOM_OUT_JOGO = _float("ZOOM_OUT_JOGO", 0.15)     # quanto o jogo encolhe na tela dividida (0.15 = 15%)
 LEGENDA_ALTURA = _float("LEGENDA_ALTURA", 0.11)  # distância da legenda até o rodapé (fração da altura)
