@@ -27,32 +27,32 @@ class Editor(threading.Thread):
         self.feitos = 0
         self.descartados = 0
 
-    def enfileirar(self, momento, motivo):
-        if self.fila.qsize() >= 3:
+    def enfileirar(self, momento, motivo, forcado=False):
+        if not forcado and self.fila.qsize() >= 3:
             log.info("fila cheia, ignorando momento (%s)", motivo)
             return
-        if self.feitos >= config.MAX_CORTES_POR_LIVE:
+        if not forcado and self.feitos >= config.MAX_CORTES_POR_LIVE:
             return
         log.info("⚡ [%s] momento detectado: %s", self.live["nome"], motivo)
-        self.fila.put((momento, motivo))
+        self.fila.put((momento, motivo, forcado))
 
     def run(self):
         while True:
             item = self.fila.get()
             if item is None:
                 return
-            momento, motivo = item
+            momento, motivo, forcado = item
             # espera os pedaços depois do momento terminarem de gravar
             espera = momento + config.DEPOIS_S + config.SEGMENTO_S + 5 - time.time()
             if espera > 0:
                 time.sleep(espera)
             try:
-                self.processar(momento, motivo)
+                self.processar(momento, motivo, forcado)
             except Exception as e:
                 log.exception("erro ao montar corte")
                 assistente.texto(f"⚠️ Erro ao montar um corte de {self.live['nome']}: {str(e)[:200]}")
 
-    def processar(self, momento, motivo):
+    def processar(self, momento, motivo, forcado=False):
         pasta = os.path.join(config.PASTA_TMP, f"{self.live['nome']}_{int(momento)}")
         try:
             janela = corte.preparar_janela(momento - config.ANTES_S, momento + config.DEPOIS_S, pasta, self.live["pasta"])
@@ -72,7 +72,7 @@ class Editor(threading.Thread):
                 titulo, gancho, sobre = f"Momento da live: {self.live['titulo']}"[:70], "", f"(sem IA) {motivo}"
             else:
                 nota = int(r.get("nota") or 0)
-                if not r.get("vale_corte") or nota < config.NOTA_MINIMA:
+                if not forcado and (not r.get("vale_corte") or nota < config.NOTA_MINIMA):
                     self.descartados += 1
                     log.info("descartado pela IA (nota %s): %s", nota, r.get("motivo", ""))
                     return
@@ -181,6 +181,12 @@ def sessao(live):
         )
 
     api.diagnosticos[nome] = diagnostico
+
+    def forcar():
+        # pega o último minuto já gravado (o momento fica no fim da janela, então não precisa esperar)
+        editor.enfileirar(time.time() - config.DEPOIS_S - config.SEGMENTO_S - 5, "corte pedido pelo WhatsApp", forcado=True)
+
+    api.forcadores[nome] = forcar
     avisou = False
     try:
         while True:
@@ -219,6 +225,7 @@ def sessao(live):
         limpar_segmentos(live["pasta"], tudo=True)
         api.status_lives.pop(nome, None)
         api.diagnosticos.pop(nome, None)
+        api.forcadores.pop(nome, None)
 
     duracao = (time.time() - st["desde"]) / 3600
     assistente.texto(

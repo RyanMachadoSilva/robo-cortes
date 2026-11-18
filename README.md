@@ -15,6 +15,7 @@ Você responde no WhatsApp:
 | `não 12` | Descarta e apaga |
 | `postei 12` | Apaga da VPS (você já postou) |
 | `cortes` | Mostra se está gravando e os cortes pendentes |
+| `corte agora` | Corta o último minuto da live na hora (sem esperar pico, sem filtro de nota) |
 | `diag` | Diagnóstico da live: gravação, chat, volume e cortes |
 | `log` | Últimas linhas do log do robô |
 

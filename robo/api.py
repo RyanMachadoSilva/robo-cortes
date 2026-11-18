@@ -11,6 +11,7 @@ log = logging.getLogger("api")
 
 status_lives = {}  # nome do canal -> {"titulo", "cortes", "desde"}
 diagnosticos = {}  # nome do canal -> função que devolve o texto de diagnóstico da live
+forcadores = {}  # nome do canal -> função que pede um corte do último minuto
 
 
 class MemoriaLog(logging.Handler):
@@ -32,6 +33,12 @@ def executar(acao, cid=None):
     if acao == "log":
         linhas = [l[15:] if len(l) > 15 else l for l in list(memoria_log.linhas)[-25:]]  # tira a data
         return "*Últimas linhas do log:*\n" + ("\n".join(l[:160] for l in linhas) or "(vazio)")
+    if acao == "forcar":
+        if not forcadores:
+            return "Nenhuma live sendo gravada agora, então não tem o que cortar."
+        nome, forcar = next(iter(forcadores.items()))
+        forcar()
+        return f"✂️ Cortando o último minuto da live do *{nome}*. Deve chegar em 2 a 4 minutos."
     if acao == "diag":
         if not diagnosticos:
             return "Nenhuma live sendo gravada agora. Canais vigiados: " + ", ".join(c.split("/")[-1] for c in config.CANAIS)
@@ -63,7 +70,7 @@ def executar(acao, cid=None):
     if acao == "postei":
         estado.remover(c["id"])
         return f"🚀 Boa! Apaguei o corte #{c['id']} da VPS."
-    return "Comandos: ok, não, postei (com o número do corte), cortes, diag ou log."
+    return "Comandos: ok, não, postei (com o número do corte), cortes, corte agora, diag ou log."
 
 
 class _Handler(BaseHTTPRequestHandler):
