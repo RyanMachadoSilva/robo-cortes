@@ -29,7 +29,7 @@ Analise e responda SÓ com JSON neste formato:
   "gancho": "texto curto para aparecer no topo do vídeo, até 30 caracteres",
   "legendas": [{{"inicio": s, "fim": s, "texto": "fala"{extra_leg}}}]{extra}{campo_camera}
 }}
-Legendas: transcreva as falas entre "inicio" e "fim" em blocos de até 6 palavras, com tempos em segundos do áudio.{extra_regra}
+Legendas: transcreva TODAS as falas do áudio inteiro (do segundo 0 ao fim), em blocos de até 6 palavras, com "inicio" e "fim" em segundos do áudio (número, ex.: 12.5).{extra_regra}
 Se for só silêncio, conversa morna ou menu, "vale_corte": false.{regra_camera}"""
 
 CAMPO_CAMERA = ',\n  "camera": [ymin, xmin, ymax, xmax] ou null'
@@ -113,7 +113,7 @@ def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", id
             *([{"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(quadro).decode()}}] if quadro else []),
             {"text": texto},
         ]}],
-        "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 4000},
+        "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 8000},
     }
     modelos = [config.MODELO]
     if config.MODELO_RESERVA and config.MODELO_RESERVA != config.MODELO:

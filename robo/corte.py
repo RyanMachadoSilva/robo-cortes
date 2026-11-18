@@ -76,14 +76,30 @@ def _tempo_srt(s):
     return f"{h:02d}:{m:02d}:{seg:02d},{ms:03d}"
 
 
+def segundos(valor):
+    """Aceita 12, 12.5, "12.5", "00:12", "0:12.5" ou "00:00:12". Retorna float ou None."""
+    if valor is None:
+        return None
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    texto = str(valor).strip().replace(",", ".").rstrip("s")
+    try:
+        partes = [float(p) for p in texto.split(":")]
+    except ValueError:
+        return None
+    total = 0.0
+    for p in partes:
+        total = total * 60 + p
+    return total
+
+
 def quebrar_legendas(legendas, max_palavras=None):
     """Divide blocos longos em pedaços de até max_palavras, repartindo o tempo pelo número de palavras."""
     max_palavras = max_palavras or config.LEGENDA_PALAVRAS
     saida = []
     for leg in legendas:
-        try:
-            ini, fim, texto = float(leg["inicio"]), float(leg["fim"]), str(leg.get("texto") or "").strip()
-        except (KeyError, TypeError, ValueError):
+        ini, fim, texto = segundos(leg.get("inicio")), segundos(leg.get("fim")), str(leg.get("texto") or "").strip()
+        if ini is None or fim is None:
             continue
         palavras = texto.split()
         if len(palavras) <= max_palavras or leg.get("texto_extra") or fim <= ini:

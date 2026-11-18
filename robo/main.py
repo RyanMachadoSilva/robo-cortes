@@ -104,14 +104,16 @@ class Editor(threading.Thread):
                 fim, como = corte.escolher_fim(audio, pico, ini, dur, fim_ia)
                 log.info("corte: começa %.0fs antes do pico, termina no %s (%.0fs)", pico - ini, como, fim - ini)
                 legendas = []
-                for leg in r.get("legendas") or []:
-                    try:
-                        a, b = float(leg["inicio"]) - ini, float(leg["fim"]) - ini
-                    except (KeyError, TypeError, ValueError):
+                brutas = r.get("legendas") or []
+                for leg in brutas:
+                    a, b = corte.segundos(leg.get("inicio")), corte.segundos(leg.get("fim"))
+                    if a is None or b is None:
                         continue
+                    a, b = a - ini, b - ini
                     if b > 0 and a < fim - ini:
                         legendas.append({"inicio": max(a, 0), "fim": min(b, fim - ini), "texto": leg.get("texto", ""),
                                          "texto_x": leg.get(f"texto_{extra}", "") if extra else ""})
+                log.info("legendas: %s recebidas da IA, %s dentro do corte", len(brutas), len(legendas))
                 titulo = (r.get("titulo") or self.live["titulo"])[:100]
                 gancho, sobre = r.get("gancho") or "", r.get("motivo") or motivo
                 if extra:
