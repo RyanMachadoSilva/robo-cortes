@@ -5,7 +5,7 @@ Vigia canais do YouTube (padrão: **GameplayRJ** em português e **IShowSpeed** 
 1. Pega ~1 minuto ao redor do momento
 2. Manda o áudio + o chat para o Gemini, que dá uma nota e escreve título, gancho e legendas
    (o corte começa 5s antes do pico do chat e termina na primeira pausa do streamer depois dele)
-3. Monta o vídeo vertical (720x1280): se a IA achar a webcam do streamer, fica **webcam em cima e gameplay embaixo**;
+3. Monta o vídeo vertical Full HD (1080x1920): se a IA achar a webcam do streamer, fica **webcam em cima e gameplay embaixo**;
    sem webcam, a tela inteira no meio (nada cortado), com gancho e legenda
 4. Manda para o seu WhatsApp pelo **assistente-wpp**
 
@@ -13,7 +13,7 @@ Você responde no WhatsApp:
 
 | Mensagem | O que faz |
 |---|---|
-| `ok 12` | Aprova e manda o título + descrição prontos para copiar |
+| `ok 12` | Aprova, manda o título + descrição prontos para copiar e o arquivo original como documento |
 | `não 12` | Descarta e apaga |
 | `postei 12` | Apaga da VPS (você já postou) |
 | `cortes` | Mostra se está gravando e os cortes pendentes |
@@ -59,6 +59,10 @@ Se os cookies vencerem, o robô avisa no WhatsApp.
 |---|---|---|
 | `INICIO_ANTES_PICO_S` | 5 | O corte começa X s antes do pico do chat. Começando atrasado? Suba para 8 ou 10 |
 | `MIN_DEPOIS_PICO_S` | 6 | O fim (primeira pausa do streamer) só vale depois de X s do pico |
+| `QUALIDADE` | best[height<=1080]/best | Qualidade da gravação da live (1080p) |
+| `LARGURA` / `ALTURA` / `CRF` | 1080 / 1920 / 20 | Vídeo final Full HD. Se a VPS ficar lenta: 720 / 1280 / 23 |
+| `NITIDEZ_CAMERA` | 0.8 | Nitidez extra no rosto da webcam (0 = desliga) |
+| `DOCUMENTO_NO_OK` | 1 | No "ok", manda também o arquivo original como documento (0 = desliga) |
 | `ZOOM_OUT_JOGO` | 0.15 | Na tela dividida, quanto o jogo encolhe para mostrar mais das laterais (0 = preenche tudo) |
 | `MOLDURA_ALTURA` | 0.065 | Altura da barra do topo (nome do streamer + GTA VI). 0 = sem moldura |
 | `LEGENDA_TAMANHO` | 14 | Tamanho da legenda (maior = 16, menor = 12) |

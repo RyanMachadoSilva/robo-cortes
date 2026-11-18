@@ -29,6 +29,16 @@ def texto(msg):
     return _post({"para": config.DESTINO, "tipo": "texto", "texto": msg})
 
 
+def documento(caminho, legenda, corte_id):
+    """Manda o arquivo original como documento (sem nenhuma compressão do WhatsApp)."""
+    with open(caminho, "rb") as f:
+        dados = base64.b64encode(f.read()).decode()
+    return _post({
+        "para": config.DESTINO, "tipo": "documento", "legenda": legenda, "corte_id": corte_id,
+        "nome": os.path.basename(caminho), "arquivo_base64": dados,
+    }, espera=300)
+
+
 def video(caminho, legenda, corte_id):
     with open(caminho, "rb") as f:
         dados = base64.b64encode(f.read()).decode()

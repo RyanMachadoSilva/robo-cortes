@@ -49,7 +49,7 @@ SO_TITULO_COM = [p.strip().lower() for p in os.environ.get("SO_TITULO_COM", "").
 CANAL_URL = CANAIS[0]  # compatibilidade
 MAX_LIVES = _int("MAX_LIVES", 2)  # quantas lives gravar ao mesmo tempo
 COOKIES = os.environ.get("COOKIES", "/dados/cookies.txt")
-QUALIDADE = os.environ.get("QUALIDADE", "best[height<=720]/best")
+QUALIDADE = os.environ.get("QUALIDADE", "best[height<=1080]/best")  # 1080p: rosto da webcam bem mais nítido
 INTERVALO_CHECAGEM_S = _int("INTERVALO_CHECAGEM_S", 90)  # de quanto em quanto tempo checa se abriu live
 
 # Pastas
@@ -75,9 +75,11 @@ DURACAO_MAX_S = _float("DURACAO_MAX_S", 58)
 MIN_ENTRE_CORTES_S = _int("MIN_ENTRE_CORTES_S", 600)  # no máximo 1 corte a cada 10 min
 MAX_CORTES_POR_LIVE = _int("MAX_CORTES_POR_LIVE", 60)
 NOTA_MINIMA = _int("NOTA_MINIMA", 6)      # nota (0-10) mínima dada pela IA para te mandar o corte
-LARGURA = _int("LARGURA", 720)            # vídeo final vertical: LARGURA x ALTURA
-ALTURA = _int("ALTURA", 1280)
-CRF = _int("CRF", 23)
+LARGURA = _int("LARGURA", 1080)           # vídeo final vertical Full HD: LARGURA x ALTURA
+ALTURA = _int("ALTURA", 1920)
+CRF = _int("CRF", 20)                     # menor = mais qualidade (e arquivo maior)
+NITIDEZ_CAMERA = _float("NITIDEZ_CAMERA", 0.8)  # filtro de nitidez na webcam (0 = desliga)
+DOCUMENTO_NO_OK = os.environ.get("DOCUMENTO_NO_OK", "1") != "0"  # no "ok", manda o arquivo original como documento
 LEGENDA_TAMANHO = _float("LEGENDA_TAMANHO", 14)  # tamanho da legenda (era 17)
 MOLDURA_ALTURA = _float("MOLDURA_ALTURA", 0.065)  # barra do topo (fração da altura; 0 = sem moldura)
 ZOOM_OUT_JOGO = _float("ZOOM_OUT_JOGO", 0.15)     # quanto o jogo encolhe na tela dividida (0.15 = 15%)

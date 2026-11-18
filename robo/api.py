@@ -1,6 +1,7 @@
 """Porta interna do robô: recebe do assistente os comandos ok / não / postei / status."""
 import collections
 import json
+import os
 import logging
 import threading
 import time
@@ -80,8 +81,17 @@ def executar(acao, cid=None):
         return f"Não achei o corte #{cid}." if cid else "Não tem corte pendente."
     if acao == "ok":
         estado.atualizar(c["id"], status="aprovado")
+        if config.DOCUMENTO_NO_OK:
+            from . import assistente
+
+            def mandar(c=c):
+                for chave, rotulo in (("arquivo", ""), ("arquivo_extra", " (outra versão)"), ("arquivo_en", " (EN)")):
+                    if c.get(chave) and os.path.exists(c[chave]):
+                        assistente.documento(c[chave], f"📎 Corte #{c['id']}{rotulo} em qualidade original", c["id"])
+
+            threading.Thread(target=mandar, daemon=True).start()
         return (
-            f"✅ Corte #{c['id']} aprovado. Texto pra copiar:\n\n{c.get('descricao') or c.get('titulo', '')}\n\n"
+            f"✅ Corte #{c['id']} aprovado{' (o arquivo original chega em seguida como documento)' if config.DOCUMENTO_NO_OK else ''}. Texto pra copiar:\n\n{c.get('descricao') or c.get('titulo', '')}\n\n"
             + (f"{'🇺🇸 Em inglês' if c.get('extra_idioma') == 'en' else '🇧🇷 Em português'}:\n\n{c['descricao_extra']}\n\n"
                if c.get("descricao_extra") else "")
             + f"Depois de postar, manda *postei {c['id']}* que eu apago da VPS."

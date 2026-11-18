@@ -109,11 +109,12 @@ def dimensoes(lista):
     primeiro = open(lista).readline().split("'")[1]
     r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
                         "-of", "csv=p=0", primeiro], capture_output=True, text=True, timeout=30)
-    try:
-        w, h = r.stdout.strip().split(",")[:2]
-        return int(w), int(h)
-    except ValueError:
-        return 1280, 720
+    for linha in r.stdout.splitlines():  # em .ts o ffprobe pode repetir a linha
+        partes = [p for p in linha.strip().split(",") if p]
+        if len(partes) >= 2 and partes[0].isdigit() and partes[1].isdigit():
+            return int(partes[0]), int(partes[1])
+    log.warning("não consegui ler a resolução de %s; usando 1280x720", primeiro)
+    return 1280, 720
 
 
 def caixa_camera(caixa, iw, ih):
@@ -189,6 +190,7 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
     W, H = config.LARGURA, config.ALTURA
     topo_h = int(H * config.MOLDURA_ALTURA) // 2 * 2 if config.MOLDURA_ALTURA > 0 else 0
     area_h = H - topo_h  # espaço abaixo da moldura
+    nitidez = f",unsharp=5:5:{config.NITIDEZ_CAMERA}:5:5:0" if config.NITIDEZ_CAMERA > 0 else ""
     if camera:
         cx, cy, cw, ch = camera
         cam_h = int(W * ch / cw) // 2 * 2
@@ -198,10 +200,11 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
         filtros = [
             "[0:v]setpts=PTS-STARTPTS,split=3[a][b][c]",
             # webcam: recorta e preenche a faixa de cima
-            f"[a]crop={cw}:{ch}:{cx}:{cy},scale={W}:{cam_h}:force_original_aspect_ratio=increase,crop={W}:{cam_h}[cam]",
+            f"[a]crop={cw}:{ch}:{cx}:{cy},scale={W}:{cam_h}:force_original_aspect_ratio=increase:flags=lanczos,"
+            f"crop={W}:{cam_h}{nitidez}[cam]",
             # gameplay: fundo desfocado + jogo com menos zoom no meio
             f"[b]scale=-2:{jogo_h},crop={W}:{jogo_h},boxblur=20:4,eq=brightness=-0.2[jbg]",
-            f"[c]scale=-2:{jogo_fg},crop='min(iw,{W})':{jogo_fg}[jfg]",
+            f"[c]scale=-2:{jogo_fg}:flags=lanczos,crop='min(iw,{W})':{jogo_fg}[jfg]",
             f"[jbg][jfg]overlay=(W-w)/2:(H-h)/2[jogo]",
             f"[cam][jogo]vstack,pad={W}:{H}:0:{topo_h}:color={COR_FUNDO}[v0]",
         ]
@@ -213,7 +216,7 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
         filtros = [
             "[0:v]setpts=PTS-STARTPTS,split=2[a][b]",
             f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=20:4,eq=brightness=-0.15[bg]",
-            f"[b]scale={W}:{fg_h}[fg]",
+            f"[b]scale={W}:{fg_h}:flags=lanczos[fg]",
             f"[bg][fg]overlay=0:{fg_y}[v0]",
         ]
         separador = None
