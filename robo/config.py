@@ -16,21 +16,33 @@ def _float(nome, padrao):
         return padrao
 
 
-# Canais a vigiar, com o idioma de cada um: CANAIS=@gameplayrj:pt,@ishowspeed:en
+# Canais a vigiar, com o idioma de cada um: CANAIS=@gameplayrj:pt,@ishowspeed:en+pt
+# "en+pt" = corte principal em inglês + uma versão extra com legenda em português.
 # (aceita @nome ou o link do canal; sem ":idioma" vale pt)
 def _canal(c):
     c = c.strip().rstrip("/")
     return c if c.startswith("http") else "https://www.youtube.com/" + (c if c.startswith("@") else "@" + c)
 
 
-CANAIS, IDIOMAS = [], {}
+VERSAO_EN = os.environ.get("VERSAO_EN", "nao").strip().lower()  # só vale para canais ":pt" sem "+en"
+
+CANAIS, IDIOMAS, EXTRAS = [], {}, {}
 for _item in (os.environ.get("CANAIS") or os.environ.get("CANAL_URL") or "@gameplayrj").split(","):
-    if not _item.strip():
+    _item = _item.strip()
+    if not _item:
         continue
-    _nome, _, _idioma = _item.strip().rpartition(":") if _item.strip().rsplit(":", 1)[-1].lower() in ("pt", "en") else (_item, "", "pt")
+    _fim = _item.rsplit(":", 1)[-1].lower()
+    if all(p in ("pt", "en") for p in _fim.split("+")):
+        _nome, _idiomas = _item.rsplit(":", 1)[0], _fim.split("+")
+    else:
+        _nome, _idiomas = _item, ["pt"]
     _url = _canal(_nome)
     CANAIS.append(_url)
-    IDIOMAS[_url] = (_idioma or "pt").lower()
+    IDIOMAS[_url] = _idiomas[0]
+    _extra = _idiomas[1] if len(_idiomas) > 1 and _idiomas[1] != _idiomas[0] else None
+    if _extra is None and _idiomas[0] == "pt" and VERSAO_EN in ("separado", "junto"):
+        _extra = "en"
+    EXTRAS[_url] = _extra
 
 # Só grava lives cujo título tenha uma destas palavras (vazio = grava qualquer live). Ex.: SO_TITULO_COM=gta
 SO_TITULO_COM = [p.strip().lower() for p in os.environ.get("SO_TITULO_COM", "").split(",") if p.strip()]
@@ -70,7 +82,6 @@ AUDIO_PICO_DB = _float("AUDIO_PICO_DB", 10.0)           # volume X dB acima do n
 PALAVRAS_MIN = _int("PALAVRAS_MIN", 5)                  # mensagens com "kkkk", "clipa"... em 10s
 
 # Versão em inglês: "separado" (um vídeo PT e outro EN), "junto" (as duas legendas no mesmo vídeo) ou "nao"
-VERSAO_EN = os.environ.get("VERSAO_EN", "nao").strip().lower()  # só vale para canais em português
 
 # IA (Gemini)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

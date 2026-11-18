@@ -56,7 +56,7 @@ def remover(cid):
     with _trava:
         c = _dados["cortes"].pop(str(cid), None)
         salvar()
-    for chave in ("arquivo", "arquivo_en"):
+    for chave in ("arquivo", "arquivo_en", "arquivo_extra"):
         if c and c.get(chave):
             try:
                 os.remove(c[chave])

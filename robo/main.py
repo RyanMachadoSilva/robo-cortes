@@ -62,9 +62,10 @@ class Editor(threading.Thread):
             audio = corte.extrair_audio(lista, desl, dur)
             chat = self.detector_ref().textos(momento - 30, momento + config.ATRASO_CHAT_S + 10)
             idioma = self.live.get("idioma", "pt")
-            r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"], idioma)
+            extra = self.live.get("extra")  # versão extra em outro idioma ("en", "pt" ou None)
+            r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"], idioma, extra)
 
-            titulo_en = gancho_en = ""
+            titulo_x = gancho_x = ""
             if r is None:  # IA indisponível: manda o trecho inteiro, sem legenda
                 ini, fim, legendas, nota = 0.0, dur, [], None
                 titulo, gancho, sobre = f"Momento da live: {self.live['titulo']}"[:70], "", f"(sem IA) {motivo}"
@@ -83,48 +84,54 @@ class Editor(threading.Thread):
                     except (KeyError, TypeError, ValueError):
                         continue
                     if b > 0 and a < fim - ini:
-                        legendas.append({"inicio": max(a, 0), "fim": min(b, fim - ini),
-                                         "texto": leg.get("texto", ""), "texto_en": leg.get("texto_en", "")})
+                        legendas.append({"inicio": max(a, 0), "fim": min(b, fim - ini), "texto": leg.get("texto", ""),
+                                         "texto_x": leg.get(f"texto_{extra}", "") if extra else ""})
                 titulo = (r.get("titulo") or self.live["titulo"])[:100]
                 gancho, sobre = r.get("gancho") or "", r.get("motivo") or motivo
-                titulo_en, gancho_en = (r.get("titulo_en") or "")[:100], r.get("gancho_en") or ""
+                if extra:
+                    titulo_x, gancho_x = (r.get(f"titulo_{extra}") or "")[:100], r.get(f"gancho_{extra}") or ""
 
             os.makedirs(config.PASTA_CORTES, exist_ok=True)
             saida = os.path.join(config.PASTA_CORTES, f"corte_{self.live['nome']}_{int(momento)}.mp4")
-            tem_en = idioma == "pt" and any(l.get("texto_en") for l in legendas)
-            leg_pt = [{**l, "texto_extra": l.get("texto_en") if config.VERSAO_EN == "junto" else ""} for l in legendas]
-            saida_en = None
+            tem_x = bool(extra) and any(l.get("texto_x") for l in legendas)
+            junto = tem_x and extra == "en" and idioma == "pt" and config.VERSAO_EN == "junto"
+            leg_principal = [{**l, "texto_extra": l["texto_x"] if junto else ""} for l in legendas]
+            saida_x = None
             with RENDER:
                 inicio_render = time.time()
-                corte.renderizar(lista, desl + ini, fim - ini, leg_pt, gancho, saida, pasta)
+                corte.renderizar(lista, desl + ini, fim - ini, leg_principal, gancho, saida, pasta)
                 log.info("corte renderizado em %.0fs (%.0fs de vídeo)", time.time() - inicio_render, fim - ini)
-                if config.VERSAO_EN == "separado" and tem_en:
-                    saida_en = saida.replace(".mp4", "_en.mp4")
-                    leg_en = [{**l, "texto": l.get("texto_en") or ""} for l in legendas]
-                    corte.renderizar(lista, desl + ini, fim - ini, leg_en, gancho_en or gancho, saida_en, pasta)
-                    log.info("versão em inglês pronta")
+                if tem_x and not junto:
+                    saida_x = saida.replace(".mp4", f"_{extra}.mp4")
+                    leg_x = [{**l, "texto": l["texto_x"]} for l in legendas]
+                    corte.renderizar(lista, desl + ini, fim - ini, leg_x, gancho_x or gancho, saida_x, pasta)
+                    log.info("versão em %s pronta", extra)
 
             nome_canal = self.live["nome"]
+
+            def descricao(lingua, tit):
+                if lingua == "en":
+                    return f"{tit}\n\nClip from {nome_canal}'s live stream: {self.live['url']}\n#gta6 #shorts #{nome_canal.lower()}"
+                return f"{tit}\n\nCorte da live do {nome_canal}: {self.live['url']}\n#gta6 #shorts #{nome_canal.lower()}"
+
             cid = estado.novo_corte(
-                arquivo=saida, titulo=titulo, nota=nota, live=self.live["url"],
-                descricao=(f"{titulo}\n\nClip from {nome_canal}'s live stream: {self.live['url']}\n#gta6 #shorts #{nome_canal.lower()}"
-                           if idioma == "en" else
-                           f"{titulo}\n\nCorte da live do {nome_canal}: {self.live['url']}\n#gta6 #shorts #{nome_canal.lower()}"),
-                arquivo_en=saida_en, titulo_en=titulo_en if (saida_en or tem_en) else "",
-                descricao_en=(f"{titulo_en}\n\nClip from {nome_canal}'s live stream: {self.live['url']}\n#gta6 #shorts #gaming"
-                              if titulo_en and (saida_en or tem_en) else ""),
+                arquivo=saida, titulo=titulo, nota=nota, live=self.live["url"], descricao=descricao(idioma, titulo),
+                arquivo_extra=saida_x, extra_idioma=extra if tem_x else None,
+                descricao_extra=descricao(extra, titulo_x) if tem_x and titulo_x else "",
             )
             self.feitos += 1
             if nome_canal in api.status_lives:
                 api.status_lives[nome_canal]["cortes"] = self.feitos
+            bandeira = {"en": " 🇺🇸", "pt": ""}[idioma]
             legenda = (
-                f"🎬 *Corte #{cid}* · {nome_canal}{' 🇺🇸' if idioma == 'en' else ''}{f' (nota {nota}/10)' if nota is not None else ''}\n{titulo}\n_{sobre}_\n\n"
+                f"🎬 *Corte #{cid}* · {nome_canal}{bandeira}{f' (nota {nota}/10)' if nota is not None else ''}\n{titulo}\n_{sobre}_\n\n"
                 f"Responde *ok {cid}*, *não {cid}* ou *postei {cid}*"
             )
             if not assistente.video(saida, legenda, cid):
                 assistente.texto(f"Corte #{cid} pronto, mas não consegui mandar o vídeo pelo WhatsApp.")
-            if saida_en:
-                assistente.video(saida_en, f"🇺🇸 *Corte #{cid}, versão em inglês*\n{titulo_en}", cid)
+            if saida_x:
+                rotulo = "🇺🇸 versão em inglês" if extra == "en" else "🇧🇷 versão com legenda em português"
+                assistente.video(saida_x, f"*Corte #{cid}, {rotulo}*\n{titulo_x}", cid)
         finally:
             shutil.rmtree(pasta, ignore_errors=True)
 

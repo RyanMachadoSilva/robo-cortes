@@ -44,14 +44,20 @@ def _chamar(modelo, corpo, espera):
         return json.load(r)
 
 
-def _campos_ingles(idioma="pt"):
-    if idioma == "en" or config.VERSAO_EN not in ("separado", "junto"):
+NOMES = {"en": ("inglês", "público gringo", "gírias equivalentes em inglês"),
+         "pt": ("português do Brasil", "público brasileiro", "gírias brasileiras equivalentes")}
+
+
+def _campos_extra(extra=None):
+    """Campos a mais no JSON quando o corte também sai numa versão em outro idioma."""
+    if extra not in NOMES:
         return {"extra_leg": "", "extra": "", "extra_regra": ""}
+    lingua, publico, girias = NOMES[extra]
     return {
-        "extra_leg": ', "texto_en": "a mesma fala traduzida para o inglês"',
-        "extra": (',\n  "titulo_en": "o título em inglês, chamativo para público gringo, até 70 caracteres",'
-                  '\n  "gancho_en": "o gancho em inglês, até 30 caracteres"'),
-        "extra_regra": " Em \"texto_en\", traduza de forma natural (gírias equivalentes em inglês), mantendo nomes próprios.",
+        "extra_leg": f', "texto_{extra}": "a mesma fala traduzida para o {lingua}"',
+        "extra": (f',\n  "titulo_{extra}": "o título em {lingua}, chamativo para {publico}, até 70 caracteres",'
+                  f'\n  "gancho_{extra}": "o gancho em {lingua}, até 30 caracteres"'),
+        "extra_regra": f' Em "texto_{extra}", traduza de forma natural ({girias}), mantendo nomes próprios.',
     }
 
 
@@ -61,7 +67,7 @@ IDIOMA_EN = (
 )
 
 
-def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", idioma="pt"):
+def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", idioma="pt", extra=None):
     """Retorna o dicionário da IA, ou None se não deu para analisar (sem chave, sem cota...)."""
     global _pausado_ate
     if not config.GEMINI_API_KEY:
@@ -70,7 +76,7 @@ def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", id
         titulo=titulo_live, canal=canal or config.CANAL_URL.split("/")[-1], duracao=duracao, motivo=motivo,
         chat=" | ".join(amostra_chat[-40:]) or "(chat indisponível)",
         instrucao_idioma=IDIOMA_EN if idioma == "en" else "",
-        **_campos_ingles(idioma),
+        **_campos_extra(extra),
     )
     corpo = {
         "contents": [{"role": "user", "parts": [

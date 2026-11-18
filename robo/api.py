@@ -30,7 +30,8 @@ def executar(acao, cid=None):
         estado.atualizar(c["id"], status="aprovado")
         return (
             f"✅ Corte #{c['id']} aprovado. Texto pra copiar:\n\n{c.get('descricao') or c.get('titulo', '')}\n\n"
-            + (f"🇺🇸 Em inglês:\n\n{c['descricao_en']}\n\n" if c.get("descricao_en") else "")
+            + (f"{'🇺🇸 Em inglês' if c.get('extra_idioma') == 'en' else '🇧🇷 Em português'}:\n\n{c['descricao_extra']}\n\n"
+               if c.get("descricao_extra") else "")
             + f"Depois de postar, manda *postei {c['id']}* que eu apago da VPS."
         )
     if acao in ("nao", "não"):
