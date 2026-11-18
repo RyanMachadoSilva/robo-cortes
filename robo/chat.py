@@ -3,6 +3,7 @@
 Tenta primeiro o chat-downloader; se ele falhar (quebra quando o YouTube muda), usa o leitor de chat
 do próprio yt-dlp, que grava o chat num arquivo enquanto a live acontece.
 """
+import glob
 import json
 import logging
 import os
@@ -68,7 +69,6 @@ class LeitorChat(threading.Thread):
         pasta = os.path.join(config.DADOS, "chat")
         os.makedirs(pasta, exist_ok=True)
         base = os.path.join(pasta, f"chat_{int(time.time())}")
-        arquivo = base + ".live_chat.json"
         cookies = arquivo_cookies()
         cmd = ["yt-dlp", "-q", "--no-warnings", "--skip-download", "--write-subs", "--sub-langs", "live_chat", "-o", base, self.url]
         if cookies:
@@ -76,10 +76,19 @@ class LeitorChat(threading.Thread):
         log.info("lendo o chat (yt-dlp)")
         self.metodo = "yt-dlp"
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        arquivo, pos, comeco = None, 0, time.time()
         try:
-            pos = 0
             while not self.parar_evt.is_set():
-                if os.path.exists(arquivo):
+                # durante a live o yt-dlp escreve em "<nome>.live_chat.json.part"; no fim renomeia sem o ".part"
+                candidatos = [p for p in glob.glob(base + "*") if "live_chat" in p]
+                if candidatos and (arquivo is None or not os.path.exists(arquivo)):
+                    novo = max(candidatos, key=os.path.getsize)
+                    if arquivo is None:
+                        log.info("chat chegando em %s", os.path.basename(novo))
+                    arquivo = novo
+                if arquivo is None and time.time() - comeco > 90:
+                    raise RuntimeError("yt-dlp não criou o arquivo do chat em 90s")
+                if arquivo and os.path.exists(arquivo):
                     with open(arquivo, "rb") as f:
                         f.seek(pos)
                         for linha in f:
@@ -98,10 +107,11 @@ class LeitorChat(threading.Thread):
         finally:
             if proc.poll() is None:
                 proc.terminate()
-            try:
-                os.remove(arquivo)
-            except OSError:
-                pass
+            for p in glob.glob(base + "*"):
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
 
     def run(self):
         falhas = 0
