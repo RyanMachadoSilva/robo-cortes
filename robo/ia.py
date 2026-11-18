@@ -27,10 +27,18 @@ Analise e responda SÓ com JSON neste formato:
   "fim": segundo onde deve terminar (logo depois da reação; corte entre 15 e 58 segundos),
   "titulo": "título chamativo para o Short, até 70 caracteres, sem aspas",
   "gancho": "texto curto para aparecer no topo do vídeo, até 30 caracteres",
-  "legendas": [{{"inicio": s, "fim": s, "texto": "fala"{extra_leg}}}]{extra}
+  "legendas": [{{"inicio": s, "fim": s, "texto": "fala"{extra_leg}}}]{extra}{campo_camera}
 }}
 Legendas: transcreva as falas entre "inicio" e "fim" em blocos de até 6 palavras, com tempos em segundos do áudio.{extra_regra}
-Se for só silêncio, conversa morna ou menu, "vale_corte": false."""
+Se for só silêncio, conversa morna ou menu, "vale_corte": false.{regra_camera}"""
+
+CAMPO_CAMERA = ',\n  "camera": [ymin, xmin, ymax, xmax] ou null'
+REGRA_CAMERA = (
+    "\nA imagem anexada é um quadro da live nesse momento. Em \"camera\", dê a caixa da WEBCAM do streamer "
+    "(o retângulo com o vídeo do rosto dele sobreposto ao jogo), em coordenadas de 0 a 1000 no formato "
+    "[ymin, xmin, ymax, xmax]. Pegue só o retângulo da webcam, sem o resto da tela. Use null se não houver webcam "
+    "sobreposta (ex.: só jogo, ou a câmera ocupando a tela inteira)."
+)
 
 
 def _chamar(modelo, corpo, espera):
@@ -86,7 +94,7 @@ def _normalizar(dados):
     return dados
 
 
-def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", idioma="pt", extra=None):
+def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", idioma="pt", extra=None, quadro=None):
     """Retorna o dicionário da IA, ou None se não deu para analisar (sem chave, sem cota...)."""
     global _pausado_ate
     if not config.GEMINI_API_KEY:
@@ -95,11 +103,14 @@ def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", id
         titulo=titulo_live, canal=canal or config.CANAL_URL.split("/")[-1], duracao=duracao, motivo=motivo,
         chat=" | ".join(amostra_chat[-40:]) or "(chat indisponível)",
         instrucao_idioma=IDIOMA_EN if idioma == "en" else "",
+        campo_camera=CAMPO_CAMERA if quadro else "",
+        regra_camera=REGRA_CAMERA if quadro else "",
         **_campos_extra(extra),
     )
     corpo = {
         "contents": [{"role": "user", "parts": [
             {"inlineData": {"mimeType": "audio/mpeg", "data": base64.b64encode(audio_mp3).decode()}},
+            *([{"inlineData": {"mimeType": "image/jpeg", "data": base64.b64encode(quadro).decode()}}] if quadro else []),
             {"text": texto},
         ]}],
         "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 4000},

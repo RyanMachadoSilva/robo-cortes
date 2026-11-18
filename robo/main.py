@@ -70,7 +70,12 @@ class Editor(threading.Thread):
             chat = self.detector_ref().textos(momento - 30, momento + 10)
             idioma = self.live.get("idioma", "pt")
             extra = self.live.get("extra")  # versão extra em outro idioma ("en", "pt" ou None)
-            r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"], idioma, extra)
+            quadro = corte.extrair_quadro(lista, desl + pico)
+            r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"], idioma, extra, quadro)
+            camera = None
+            if r and r.get("camera"):
+                camera = corte.caixa_camera(r["camera"], *corte.dimensoes(lista))
+            log.info("layout: %s", f"webcam em cima {camera}" if camera else "tela inteira (sem webcam detectada)")
 
             titulo_x = gancho_x = ""
             if r is None:  # IA indisponível: manda o trecho inteiro, sem legenda
@@ -113,12 +118,12 @@ class Editor(threading.Thread):
             saida_x = None
             with RENDER:
                 inicio_render = time.time()
-                corte.renderizar(lista, desl + ini, fim - ini, leg_principal, gancho, saida, pasta)
+                corte.renderizar(lista, desl + ini, fim - ini, leg_principal, gancho, saida, pasta, camera)
                 log.info("corte renderizado em %.0fs (%.0fs de vídeo)", time.time() - inicio_render, fim - ini)
                 if tem_x and not junto:
                     saida_x = saida.replace(".mp4", f"_{extra}.mp4")
                     leg_x = [{**l, "texto": l["texto_x"]} for l in legendas]
-                    corte.renderizar(lista, desl + ini, fim - ini, leg_x, gancho_x or gancho, saida_x, pasta)
+                    corte.renderizar(lista, desl + ini, fim - ini, leg_x, gancho_x or gancho, saida_x, pasta, camera)
                     log.info("versão em %s pronta", extra)
 
             nome_canal = self.live["nome"]

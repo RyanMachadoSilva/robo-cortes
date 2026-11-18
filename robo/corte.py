@@ -96,23 +96,89 @@ def escrever_srt(legendas, caminho):
     return n
 
 
-def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta):
-    """Gera o vídeo vertical final (LARGURA x ALTURA)."""
+def extrair_quadro(lista, deslocamento):
+    """Foto (JPEG, 640px) de um instante do trecho, para a IA achar a webcam."""
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-ss", f"{max(deslocamento, 0):.2f}", "-f", "concat",
+           "-safe", "0", "-i", lista, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4", "-f", "image2", "pipe:1"]
+    r = subprocess.run(cmd, capture_output=True, timeout=60)
+    return r.stdout if r.returncode == 0 and r.stdout else None
+
+
+def dimensoes(lista):
+    """(largura, altura) do vídeo gravado."""
+    primeiro = open(lista).readline().split("'")[1]
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                        "-of", "csv=p=0", primeiro], capture_output=True, text=True, timeout=30)
+    try:
+        w, h = r.stdout.strip().split(",")[:2]
+        return int(w), int(h)
+    except ValueError:
+        return 1280, 720
+
+
+def caixa_camera(caixa, iw, ih):
+    """Converte a caixa da IA ([ymin, xmin, ymax, xmax] de 0 a 1000) em pixels (x, y, w, h), ou None se não fizer sentido."""
+    try:
+        y0, x0, y1, x1 = [float(v) for v in caixa]
+    except (TypeError, ValueError):
+        return None
+    if max(y0, x0, y1, x1) <= 1.0:  # veio em fração 0-1
+        y0, x0, y1, x1 = y0 * 1000, x0 * 1000, y1 * 1000, x1 * 1000
+    y0, y1 = sorted((max(0, min(1000, y0)), max(0, min(1000, y1))))
+    x0, x1 = sorted((max(0, min(1000, x0)), max(0, min(1000, x1))))
+    bw, bh = (x1 - x0) / 1000, (y1 - y0) / 1000
+    if not (0.08 <= bw <= 0.7 and 0.08 <= bh <= 0.7):  # pequena demais ou é a tela toda
+        return None
+    # entra 2% para dentro, tirando a borda/moldura da webcam
+    mx, my = bw * 0.02, bh * 0.02
+    x, y = (x0 / 1000 + mx) * iw, (y0 / 1000 + my) * ih
+    w, h = (bw - 2 * mx) * iw, (bh - 2 * my) * ih
+    aspecto = w / h
+    if not (0.5 <= aspecto <= 2.5):
+        return None
+    par = lambda v: max(2, int(v) // 2 * 2)
+    return par(x), par(y), par(w), par(h)
+
+
+def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, camera=None):
+    """Gera o vídeo vertical final (LARGURA x ALTURA).
+
+    camera=(x, y, w, h) em pixels: tela dividida (webcam em cima, gameplay embaixo).
+    Sem camera: o vídeo inteiro no meio, com o fundo desfocado (nada é cortado).
+    """
     W, H = config.LARGURA, config.ALTURA
-    fg_h = int(W * 3 / 4)              # gameplay em 4:3 (corta um pouco das laterais, fica maior na tela)
-    fg_y = int(H * 0.22)               # posição do gameplay
-    filtros = [
-        "[0:v]setpts=PTS-STARTPTS,split=2[a][b]",
-        f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=20:4,eq=brightness=-0.15[bg]",
-        f"[b]crop=ih*4/3:ih,scale={W}:{fg_h}[fg]",
-        f"[bg][fg]overlay=0:{fg_y}[v0]",
-    ]
+    if camera:
+        cx, cy, cw, ch = camera
+        cam_h = int(W * ch / cw) // 2 * 2
+        cam_h = max(int(H * 0.28) // 2 * 2, min(cam_h, int(H * 0.45) // 2 * 2))
+        jogo_h = H - cam_h
+        filtros = [
+            "[0:v]setpts=PTS-STARTPTS,split=2[a][b]",
+            # webcam: recorta e preenche a faixa de cima (corta um pouco se o formato não bater)
+            f"[a]crop={cw}:{ch}:{cx}:{cy},scale={W}:{cam_h}:force_original_aspect_ratio=increase,crop={W}:{cam_h}[cam]",
+            # gameplay: o centro da tela, preenchendo a faixa de baixo
+            f"[b]scale=-2:{jogo_h},crop={W}:{jogo_h}[jogo]",
+            "[cam][jogo]vstack[v0]",
+        ]
+        topo_texto = cam_h          # o gancho fica logo abaixo da câmera, no começo do jogo
+        base_livre = 0.16 * H       # legenda perto do rodapé
+    else:
+        fg_h = int(W * 9 / 16) // 2 * 2
+        fg_y = (H - fg_h) // 2
+        filtros = [
+            "[0:v]setpts=PTS-STARTPTS,split=2[a][b]",
+            f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=20:4,eq=brightness=-0.15[bg]",
+            f"[b]scale={W}:{fg_h}[fg]",
+            f"[bg][fg]overlay=0:{fg_y}[v0]",
+        ]
+        topo_texto = None
+        base_livre = H - (fg_y + fg_h) - H * 0.10
     atual = "v0"
 
     srt = os.path.join(pasta, "legenda.srt")
     if legendas and escrever_srt(legendas, srt):
         # Estilo em unidades do libass (altura de referência 288): texto grande, branco com contorno preto
-        margem = int((H - (fg_y + fg_h) - H * 0.08) / H * 288)
+        margem = int(base_livre / H * 288)
         estilo = (
             "FontName=DejaVu Sans,Bold=1,FontSize=17,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
             f"BorderStyle=1,Outline=2.5,Shadow=0,Alignment=2,MarginV={max(margem, 10)}"
@@ -126,9 +192,10 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta):
         with open(txt, "w", encoding="utf-8") as f:
             f.write("\n".join(textwrap.wrap(gancho.upper(), 18)[:2]))
         tam = int(W * 0.075)
+        y_texto = str(topo_texto + int(H * 0.02)) if topo_texto else str(int(H * 0.08))  # nunca em cima do rosto
         filtros.append(
             f"[{atual}]drawtext=fontfile={FONTE}:textfile={txt}:fontsize={tam}:fontcolor=white:"
-            f"borderw=4:bordercolor=black:line_spacing=8:x=(w-text_w)/2:y={int(H * 0.08)}[v2]"
+            f"borderw=4:bordercolor=black:line_spacing=8:x=(w-text_w)/2:y={y_texto}[v2]"
         )
         atual = "v2"
 

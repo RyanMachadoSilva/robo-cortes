@@ -5,7 +5,8 @@ Vigia canais do YouTube (padrão: **GameplayRJ** em português e **IShowSpeed** 
 1. Pega ~1 minuto ao redor do momento
 2. Manda o áudio + o chat para o Gemini, que dá uma nota e escreve título, gancho e legendas
    (o corte começa 5s antes do pico do chat e termina na primeira pausa do streamer depois dele)
-3. Monta o vídeo vertical (720x1280) com o gancho no topo e a legenda embaixo
+3. Monta o vídeo vertical (720x1280): se a IA achar a webcam do streamer, fica **webcam em cima e gameplay embaixo**;
+   sem webcam, a tela inteira no meio (nada cortado), com gancho e legenda
 4. Manda para o seu WhatsApp pelo **assistente-wpp**
 
 Você responde no WhatsApp:
