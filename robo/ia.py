@@ -67,6 +67,25 @@ IDIOMA_EN = (
 )
 
 
+def _normalizar(dados):
+    """A IA às vezes devolve [ {...} ] ou {"corte": {...}} em vez de {...}: pega o objeto certo."""
+    while isinstance(dados, list):
+        dicts = [d for d in dados if isinstance(d, dict)]
+        if not dicts:
+            return None
+        dados = max(dicts, key=lambda d: d.get("nota") or 0) if len(dicts) > 1 else dicts[0]
+    if isinstance(dados, dict) and "vale_corte" not in dados and len(dados) == 1:
+        interno = next(iter(dados.values()))
+        if isinstance(interno, (dict, list)):
+            return _normalizar(interno)
+    if not isinstance(dados, dict):
+        return None
+    if not isinstance(dados.get("legendas"), list):
+        dados["legendas"] = []
+    dados["legendas"] = [l for l in dados["legendas"] if isinstance(l, dict)]
+    return dados
+
+
 def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", idioma="pt", extra=None):
     """Retorna o dicionário da IA, ou None se não deu para analisar (sem chave, sem cota...)."""
     global _pausado_ate
@@ -94,7 +113,7 @@ def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", id
             partes = resp.get("candidates", [{}])[0].get("content", {}).get("parts", [])
             bruto = "".join(p.get("text", "") for p in partes if not p.get("thought"))
             bruto = bruto.strip().removeprefix("```json").removesuffix("```").strip()
-            return json.loads(bruto)
+            return _normalizar(json.loads(bruto))
         except urllib.error.HTTPError as e:
             detalhe = e.read().decode(errors="ignore")[:200]
             log.warning("Gemini %s em %s: %s", e.code, modelo, detalhe)
