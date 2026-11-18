@@ -9,7 +9,7 @@ import time
 from . import api, assistente, config, corte, estado, ia
 from .chat import LeitorChat
 from .detector import Detector
-from .live import Bloqueado, Gravador, Ouvinte, checar_live, limpar_segmentos
+from .live import Bloqueado, Gravador, Ouvinte, checar_live, limpar_segmentos, segmentos
 
 log = logging.getLogger("robo")
 
@@ -48,8 +48,9 @@ class Editor(threading.Thread):
                 time.sleep(espera)
             try:
                 self.processar(momento, motivo)
-            except Exception:
+            except Exception as e:
                 log.exception("erro ao montar corte")
+                assistente.texto(f"⚠️ Erro ao montar um corte de {self.live['nome']}: {str(e)[:200]}")
 
     def processar(self, momento, motivo):
         pasta = os.path.join(config.PASTA_TMP, f"{self.live['nome']}_{int(momento)}")
@@ -164,12 +165,40 @@ def sessao(live):
     gravador.iniciar()
     ultima_limpeza = 0.0
     st = api.status_lives[nome]
+    inicio = time.time()
+
+    def diagnostico():
+        segs = segmentos(live["pasta"])
+        ultimo = time.time() - segs[-1][0] if segs else None
+        vols = len(detector.volumes)
+        return (
+            f"*{nome}* ({(time.time() - inicio) / 60:.0f} min de live)\n"
+            f"Gravação: {'ok, último pedaço há %.0fs' % ultimo if ultimo is not None else 'NENHUM pedaço gravado'}"
+            f" ({len(segs)} pedaços){'' if gravador.ativo() else ' · gravador parado'}\n"
+            f"Chat: {chat.total} mensagens via {chat.metodo}"
+            f"{'' if not chat.ultima_msg else ', última há %.0fs' % (time.time() - chat.ultima_msg)}\n"
+            f"Volume: {vols} medições · Cortes: {editor.feitos} enviados, {editor.descartados} descartados pela IA"
+        )
+
+    api.diagnosticos[nome] = diagnostico
+    avisou = False
     try:
         while True:
             detector.checar()
             if time.time() - ultima_limpeza > 30:
                 limpar_segmentos(live["pasta"])
                 ultima_limpeza = time.time()
+            if not avisou and time.time() - inicio > 300:  # depois de 5 min, avisa se algo não está funcionando
+                avisou = True
+                problemas = []
+                if not segmentos(live["pasta"]):
+                    problemas.append("não está gravando a live")
+                if chat.total == 0:
+                    problemas.append("o chat não está chegando (vou cortar só pelo volume)")
+                if problemas:
+                    assistente.texto(f"⚠️ {nome}: " + " e ".join(problemas) + ".\n\n" + diagnostico())
+                else:
+                    log.info("[%s] diagnóstico de 5 min ok: %s", nome, diagnostico().replace("\n", " | "))
             if not gravador.ativo():
                 log.info("[%s] gravação parou; conferindo se a live acabou", nome)
                 time.sleep(15)
@@ -189,6 +218,7 @@ def sessao(live):
         editor.join(timeout=900)  # termina os cortes que já estavam na fila
         limpar_segmentos(live["pasta"], tudo=True)
         api.status_lives.pop(nome, None)
+        api.diagnosticos.pop(nome, None)
 
     duracao = (time.time() - st["desde"]) / 3600
     assistente.texto(
@@ -208,6 +238,8 @@ def _rodar_sessao(live, ativas):
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(message)s", datefmt="%d/%m %H:%M:%S")
+    api.memoria_log.setFormatter(logging.Formatter("%(asctime)s [%(name)s] %(message)s", datefmt="%d/%m %H:%M:%S"))
+    logging.getLogger().addHandler(api.memoria_log)
     for pasta in (config.PASTA_SEGMENTOS, config.PASTA_CORTES, config.PASTA_TMP):
         os.makedirs(pasta, exist_ok=True)
     estado.carregar()

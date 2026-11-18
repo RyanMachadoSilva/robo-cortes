@@ -34,7 +34,10 @@ def extrair_audio(lista, deslocamento, duracao):
         "-f", "concat", "-safe", "0", "-i", lista, "-ss", f"{deslocamento:.2f}", "-t", f"{duracao:.2f}",
         "-vn", "-ac", "1", "-ar", "16000", "-b:a", "32k", "-f", "mp3", "pipe:1",
     ]
-    return subprocess.run(cmd, capture_output=True, timeout=120, check=True).stdout
+    r = subprocess.run(cmd, capture_output=True, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError("ffmpeg (áudio): " + r.stderr.decode(errors="ignore").strip()[-300:])
+    return r.stdout
 
 
 def _tempo_srt(s):
@@ -108,5 +111,7 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta):
         "-c:v", "libx264", "-preset", "veryfast", "-crf", str(config.CRF), "-threads", "1",
         "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", saida,
     ]
-    subprocess.run(cmd, check=True, timeout=900, capture_output=True)
+    r = subprocess.run(cmd, timeout=900, capture_output=True)
+    if r.returncode != 0:
+        raise RuntimeError("ffmpeg (vídeo): " + r.stderr.decode(errors="ignore").strip()[-300:])
     return saida

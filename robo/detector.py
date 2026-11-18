@@ -70,8 +70,9 @@ class Detector:
         if palavras >= config.PALAVRAS_MIN:
             motivos.append(f"{palavras} reações no chat")
         audio_alto = vol_normal is not None and vol_pico is not None and vol_pico - vol_normal >= config.AUDIO_PICO_DB
-        if audio_alto and (mult >= 1.5 or palavras >= 2):
-            motivos.append(f"volume +{vol_pico - vol_normal:.0f}dB")
+        chat_mudo = not any(m[0] >= agora - 120 for m in list(self.msgs))  # chat não chegou nos últimos 2 min
+        if audio_alto and (mult >= 1.5 or palavras >= 2 or chat_mudo):
+            motivos.append(f"volume +{vol_pico - vol_normal:.0f}dB" + (" (sem chat)" if chat_mudo else ""))
 
         if not motivos or agora - self.ultimo_corte < config.MIN_ENTRE_CORTES_S:
             return None

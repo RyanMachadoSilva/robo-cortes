@@ -1,4 +1,5 @@
 """Porta interna do robô: recebe do assistente os comandos ok / não / postei / status."""
+import collections
 import json
 import logging
 import threading
@@ -9,10 +10,32 @@ from . import config, estado
 log = logging.getLogger("api")
 
 status_lives = {}  # nome do canal -> {"titulo", "cortes", "desde"}
+diagnosticos = {}  # nome do canal -> função que devolve o texto de diagnóstico da live
+
+
+class MemoriaLog(logging.Handler):
+    """Guarda as últimas linhas do log para o comando "log" no WhatsApp."""
+
+    def __init__(self, tamanho=200):
+        super().__init__()
+        self.linhas = collections.deque(maxlen=tamanho)
+
+    def emit(self, record):
+        self.linhas.append(self.format(record))
+
+
+memoria_log = MemoriaLog()
 
 
 def executar(acao, cid=None):
     acao = (acao or "").lower().strip()
+    if acao == "log":
+        linhas = [l[15:] if len(l) > 15 else l for l in list(memoria_log.linhas)[-25:]]  # tira a data
+        return "*Últimas linhas do log:*\n" + ("\n".join(l[:160] for l in linhas) or "(vazio)")
+    if acao == "diag":
+        if not diagnosticos:
+            return "Nenhuma live sendo gravada agora. Canais vigiados: " + ", ".join(c.split("/")[-1] for c in config.CANAIS)
+        return "\n\n".join(f() for f in list(diagnosticos.values()))
     if acao in ("status", "cortes"):
         pend = [c for c in estado.cortes() if c["status"] in ("pendente", "aprovado")]
         linhas = ["*Robô de cortes*: vigiando " + ", ".join(c.split("/")[-1] for c in config.CANAIS)]
@@ -40,7 +63,7 @@ def executar(acao, cid=None):
     if acao == "postei":
         estado.remover(c["id"])
         return f"🚀 Boa! Apaguei o corte #{c['id']} da VPS."
-    return "Comandos: ok, não, postei (com o número do corte) ou status."
+    return "Comandos: ok, não, postei (com o número do corte), cortes, diag ou log."
 
 
 class _Handler(BaseHTTPRequestHandler):

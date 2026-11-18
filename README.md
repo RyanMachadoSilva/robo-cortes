@@ -15,6 +15,8 @@ Você responde no WhatsApp:
 | `não 12` | Descarta e apaga |
 | `postei 12` | Apaga da VPS (você já postou) |
 | `cortes` | Mostra se está gravando e os cortes pendentes |
+| `diag` | Diagnóstico da live: gravação, chat, volume e cortes |
+| `log` | Últimas linhas do log do robô |
 
 Também dá para **responder ao vídeo** só com `ok`, `não` ou `postei`, sem o número.
 
