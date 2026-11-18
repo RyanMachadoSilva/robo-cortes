@@ -58,6 +58,8 @@ Se os cookies vencerem, o robô avisa no WhatsApp.
 |---|---|---|
 | `INICIO_ANTES_PICO_S` | 5 | O corte começa X s antes do pico do chat. Começando atrasado? Suba para 8 ou 10 |
 | `MIN_DEPOIS_PICO_S` | 6 | O fim (primeira pausa do streamer) só vale depois de X s do pico |
+| `LEGENDA_TAMANHO` | 14 | Tamanho da legenda (maior = 16, menor = 12) |
+| `LEGENDA_ALTURA` | 0.11 | Distância da legenda até o rodapé (0.15 = mais alto, 0.08 = mais baixo) |
 | `NOTA_MINIMA` | 6 | Nota mínima da IA para o corte chegar em você. Muito corte ruim? Suba. Pouco corte? Desça |
 | `MIN_ENTRE_CORTES_S` | 600 | No máximo 1 corte a cada 10 min |
 | `CHAT_MULTIPLICADOR` / `CHAT_MIN_MSGS` | 3 / 10 | Sensibilidade ao chat |

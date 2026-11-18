@@ -161,7 +161,7 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
             "[cam][jogo]vstack[v0]",
         ]
         topo_texto = cam_h          # o gancho fica logo abaixo da câmera, no começo do jogo
-        base_livre = 0.16 * H       # legenda perto do rodapé
+        base_livre = config.LEGENDA_ALTURA * H  # legenda perto do rodapé
     else:
         fg_h = int(W * 9 / 16) // 2 * 2
         fg_y = (H - fg_h) // 2
@@ -172,7 +172,7 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
             f"[bg][fg]overlay=0:{fg_y}[v0]",
         ]
         topo_texto = None
-        base_livre = H - (fg_y + fg_h) - H * 0.10
+        base_livre = config.LEGENDA_ALTURA * H
     atual = "v0"
 
     srt = os.path.join(pasta, "legenda.srt")
@@ -180,8 +180,8 @@ def renderizar(lista, deslocamento, duracao, legendas, gancho, saida, pasta, cam
         # Estilo em unidades do libass (altura de referência 288): texto grande, branco com contorno preto
         margem = int(base_livre / H * 288)
         estilo = (
-            "FontName=DejaVu Sans,Bold=1,FontSize=17,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
-            f"BorderStyle=1,Outline=2.5,Shadow=0,Alignment=2,MarginV={max(margem, 10)}"
+            f"FontName=DejaVu Sans,Bold=1,FontSize={config.LEGENDA_TAMANHO},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
+            f"BorderStyle=1,Outline=2,Shadow=0,Alignment=2,MarginV={max(margem, 10)}"
         )
         filtros.append(f"[{atual}]subtitles={srt}:force_style='{estilo}'[v1]")
         atual = "v1"

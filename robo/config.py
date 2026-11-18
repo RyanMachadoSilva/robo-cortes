@@ -78,6 +78,8 @@ NOTA_MINIMA = _int("NOTA_MINIMA", 6)      # nota (0-10) mínima dada pela IA par
 LARGURA = _int("LARGURA", 720)            # vídeo final vertical: LARGURA x ALTURA
 ALTURA = _int("ALTURA", 1280)
 CRF = _int("CRF", 23)
+LEGENDA_TAMANHO = _float("LEGENDA_TAMANHO", 14)  # tamanho da legenda (era 17)
+LEGENDA_ALTURA = _float("LEGENDA_ALTURA", 0.11)  # distância da legenda até o rodapé (fração da altura)
 APAGAR_PENDENTES_H = _int("APAGAR_PENDENTES_H", 24)
 
 # Detector de picos
