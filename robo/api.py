@@ -8,16 +8,18 @@ from . import config, estado
 
 log = logging.getLogger("api")
 
-status_live = {"ao_vivo": False, "titulo": "", "cortes_na_live": 0, "desde": None}
+status_lives = {}  # nome do canal -> {"titulo", "cortes", "desde"}
 
 
 def executar(acao, cid=None):
     acao = (acao or "").lower().strip()
     if acao in ("status", "cortes"):
         pend = [c for c in estado.cortes() if c["status"] in ("pendente", "aprovado")]
-        linhas = [f"*Robô de cortes*: {'🔴 gravando ' + status_live['titulo'] if status_live['ao_vivo'] else 'esperando live'}"]
-        if status_live["ao_vivo"]:
-            linhas.append(f"Cortes nesta live: {status_live['cortes_na_live']}")
+        linhas = ["*Robô de cortes*: vigiando " + ", ".join(c.split("/")[-1] for c in config.CANAIS)]
+        for nome, st in list(status_lives.items()):
+            linhas.append(f"🔴 {nome}: {st['titulo'][:60]} ({st['cortes']} cortes)")
+        if not status_lives:
+            linhas.append("Nenhuma live aberta agora.")
         linhas += [f"#{c['id']} {c['status']}: {c.get('titulo', '')}" for c in pend] or ["Nenhum corte pendente."]
         return "\n".join(linhas)
 

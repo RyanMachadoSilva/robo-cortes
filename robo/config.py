@@ -16,8 +16,15 @@ def _float(nome, padrao):
         return padrao
 
 
-# Canal a vigiar
-CANAL_URL = os.environ.get("CANAL_URL", "https://www.youtube.com/@gameplayrj").rstrip("/")
+# Canais a vigiar: CANAIS=@gameplayrj,@skorpionoficial (aceita @nome ou o link do canal)
+def _canal(c):
+    c = c.strip().rstrip("/")
+    return c if c.startswith("http") else "https://www.youtube.com/" + (c if c.startswith("@") else "@" + c)
+
+
+CANAIS = [_canal(c) for c in (os.environ.get("CANAIS") or os.environ.get("CANAL_URL") or "@gameplayrj").split(",") if c.strip()]
+CANAL_URL = CANAIS[0]  # compatibilidade
+MAX_LIVES = _int("MAX_LIVES", 2)  # quantas lives gravar ao mesmo tempo
 COOKIES = os.environ.get("COOKIES", "/dados/cookies.txt")
 QUALIDADE = os.environ.get("QUALIDADE", "best[height<=720]/best")
 INTERVALO_CHECAGEM_S = _int("INTERVALO_CHECAGEM_S", 90)  # de quanto em quanto tempo checa se abriu live

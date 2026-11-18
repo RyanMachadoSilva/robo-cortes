@@ -1,6 +1,6 @@
 # Robô de cortes
 
-Vigia um canal do YouTube (padrão: **GameplayRJ**). Quando a live abre, grava em pedaços curtos, lê o chat e mede o volume do áudio. Quando o chat explode ("KKKK", "clipa", muita mensagem de uma vez) ou o volume dispara, ele:
+Vigia canais do YouTube (padrão: **GameplayRJ** e **Skorpion Gamer**) e grava até 2 lives ao mesmo tempo (os cortes são montados um por vez, para não pesar a VPS). Quando a live abre, grava em pedaços curtos, lê o chat e mede o volume do áudio. Quando o chat explode ("KKKK", "clipa", muita mensagem de uma vez) ou o volume dispara, ele:
 
 1. Pega ~1 minuto ao redor do momento
 2. Manda o áudio + o chat para o Gemini, que dá uma nota, escolhe o início e o fim, escreve título, gancho e legendas
@@ -56,7 +56,8 @@ Se os cookies vencerem, o robô avisa no WhatsApp.
 | `CHAT_MULTIPLICADOR` / `CHAT_MIN_MSGS` | 3 / 10 | Sensibilidade ao chat |
 | `PALAVRAS_MIN` | 5 | Quantas mensagens com "kkkk", "clipa", "mds" em 10s disparam |
 | `VERSAO_EN` | separado | `separado`: manda também um vídeo com legenda, gancho e título em inglês. `junto`: as duas legendas no mesmo vídeo. `nao`: só português |
-| `CANAL_URL` | @gameplayrj | Outro canal |
+| `CANAIS` | @gameplayrj,@skorpionoficial | Canais vigiados, separados por vírgula |
+| `MAX_LIVES` | 2 | Quantas lives gravar ao mesmo tempo (KVM 1: 2; KVM 2: 4) |
 
 Depois de mudar: `docker compose up -d --force-recreate`.
 
@@ -71,7 +72,7 @@ Depois de mudar: `docker compose up -d --force-recreate`.
 
 ## O que aparece no log
 
-- `vigiando ... a cada 90s`: esperando a live
+- `vigiando ... a cada 90s`: esperando alguma live abrir
 - `🔴 live aberta`: começou a gravar
 - `⚡ momento detectado`: o chat explodiu, vai analisar
 - `descartado pela IA (nota 4)`: a IA achou fraco

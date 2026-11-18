@@ -54,13 +54,13 @@ def _campos_ingles():
     }
 
 
-def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat):
+def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal=""):
     """Retorna o dicionário da IA, ou None se não deu para analisar (sem chave, sem cota...)."""
     global _pausado_ate
     if not config.GEMINI_API_KEY:
         return None
     texto = PROMPT.format(
-        titulo=titulo_live, canal=config.CANAL_URL.split("/")[-1], duracao=duracao, motivo=motivo,
+        titulo=titulo_live, canal=canal or config.CANAL_URL.split("/")[-1], duracao=duracao, motivo=motivo,
         chat=" | ".join(amostra_chat[-40:]) or "(chat indisponível)",
         **_campos_ingles(),
     )

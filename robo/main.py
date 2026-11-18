@@ -13,12 +13,14 @@ from .live import Bloqueado, Gravador, Ouvinte, checar_live, limpar_segmentos
 
 log = logging.getLogger("robo")
 
+RENDER = threading.Lock()  # monta um corte por vez, mesmo com 2 lives (a VPS tem 1 vCPU)
+
 
 class Editor(threading.Thread):
     """Fila de momentos detectados -> cortes prontos (um de cada vez, para não pesar a VPS)."""
 
     def __init__(self, live, detector_ref):
-        super().__init__(daemon=True, name="editor")
+        super().__init__(daemon=True, name=f"editor-{live['nome']}")
         self.live = live
         self.detector_ref = detector_ref
         self.fila = queue.Queue()
@@ -31,7 +33,7 @@ class Editor(threading.Thread):
             return
         if self.feitos >= config.MAX_CORTES_POR_LIVE:
             return
-        log.info("⚡ momento detectado: %s", motivo)
+        log.info("⚡ [%s] momento detectado: %s", self.live["nome"], motivo)
         self.fila.put((momento, motivo))
 
     def run(self):
@@ -50,16 +52,16 @@ class Editor(threading.Thread):
                 log.exception("erro ao montar corte")
 
     def processar(self, momento, motivo):
-        pasta = os.path.join(config.PASTA_TMP, str(int(momento)))
+        pasta = os.path.join(config.PASTA_TMP, f"{self.live['nome']}_{int(momento)}")
         try:
-            janela = corte.preparar_janela(momento - config.ANTES_S, momento + config.DEPOIS_S, pasta)
+            janela = corte.preparar_janela(momento - config.ANTES_S, momento + config.DEPOIS_S, pasta, self.live["pasta"])
             if not janela or janela[2] < 10:
                 log.info("trecho não está mais gravado; pulando")
                 return
             lista, desl, dur = janela
             audio = corte.extrair_audio(lista, desl, dur)
             chat = self.detector_ref().textos(momento - 30, momento + config.ATRASO_CHAT_S + 10)
-            r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat)
+            r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"])
 
             titulo_en = gancho_en = ""
             if r is None:  # IA indisponível: manda o trecho inteiro, sem legenda
@@ -87,22 +89,21 @@ class Editor(threading.Thread):
                 titulo_en, gancho_en = (r.get("titulo_en") or "")[:100], r.get("gancho_en") or ""
 
             os.makedirs(config.PASTA_CORTES, exist_ok=True)
-            saida = os.path.join(config.PASTA_CORTES, f"corte_{int(momento)}.mp4")
+            saida = os.path.join(config.PASTA_CORTES, f"corte_{self.live['nome']}_{int(momento)}.mp4")
             tem_en = any(l.get("texto_en") for l in legendas)
             leg_pt = [{**l, "texto_extra": l.get("texto_en") if config.VERSAO_EN == "junto" else ""} for l in legendas]
-            inicio_render = time.time()
-            corte.renderizar(lista, desl + ini, fim - ini, leg_pt, gancho, saida, pasta)
-            log.info("corte renderizado em %.0fs (%.0fs de vídeo)", time.time() - inicio_render, fim - ini)
-
             saida_en = None
-            if config.VERSAO_EN == "separado" and tem_en:
-                saida_en = saida.replace(".mp4", "_en.mp4")
-                leg_en = [{**l, "texto": l.get("texto_en") or ""} for l in legendas]
-                corte.renderizar(lista, desl + ini, fim - ini, leg_en, gancho_en or gancho, saida_en, pasta)
-                log.info("versão em inglês pronta")
+            with RENDER:
+                inicio_render = time.time()
+                corte.renderizar(lista, desl + ini, fim - ini, leg_pt, gancho, saida, pasta)
+                log.info("corte renderizado em %.0fs (%.0fs de vídeo)", time.time() - inicio_render, fim - ini)
+                if config.VERSAO_EN == "separado" and tem_en:
+                    saida_en = saida.replace(".mp4", "_en.mp4")
+                    leg_en = [{**l, "texto": l.get("texto_en") or ""} for l in legendas]
+                    corte.renderizar(lista, desl + ini, fim - ini, leg_en, gancho_en or gancho, saida_en, pasta)
+                    log.info("versão em inglês pronta")
 
-            canal = config.CANAL_URL.split("/")[-1]
-            nome_canal = canal.lstrip("@")
+            nome_canal = self.live["nome"]
             cid = estado.novo_corte(
                 arquivo=saida, titulo=titulo, nota=nota, live=self.live["url"],
                 descricao=f"{titulo}\n\nCorte da live do {nome_canal}: {self.live['url']}\n#gta6 #shorts #{nome_canal.lower()}",
@@ -111,9 +112,10 @@ class Editor(threading.Thread):
                               if titulo_en and (saida_en or tem_en) else ""),
             )
             self.feitos += 1
-            api.status_live["cortes_na_live"] = self.feitos
+            if nome_canal in api.status_lives:
+                api.status_lives[nome_canal]["cortes"] = self.feitos
             legenda = (
-                f"🎬 *Corte #{cid}*{f' (nota {nota}/10)' if nota is not None else ''}\n{titulo}\n_{sobre}_\n\n"
+                f"🎬 *Corte #{cid}* · {nome_canal}{f' (nota {nota}/10)' if nota is not None else ''}\n{titulo}\n_{sobre}_\n\n"
                 f"Responde *ok {cid}*, *não {cid}* ou *postei {cid}*"
             )
             if not assistente.video(saida, legenda, cid):
@@ -133,9 +135,10 @@ def limpar_pendentes_antigos():
 
 
 def sessao(live):
-    log.info("🔴 live aberta: %s", live["titulo"])
-    assistente.texto(f"🔴 Live começou: *{live['titulo']}*\nVou gravando e te mando os melhores momentos.")
-    api.status_live.update(ao_vivo=True, titulo=live["titulo"], cortes_na_live=0, desde=time.time())
+    nome = live["nome"]
+    log.info("🔴 [%s] live aberta: %s", nome, live["titulo"])
+    assistente.texto(f"🔴 *{nome}* abriu live: {live['titulo']}\nVou gravando e te mando os melhores momentos.")
+    api.status_lives[nome] = {"titulo": live["titulo"], "cortes": 0, "desde": time.time()}
 
     parar = threading.Event()
     detector_box = {}
@@ -145,22 +148,23 @@ def sessao(live):
     editor.start()
     chat = LeitorChat(live["url"], detector, parar)
     chat.start()
-    Ouvinte(detector, parar).start()
+    Ouvinte(detector, parar, live["pasta"]).start()
 
-    gravador = Gravador(live["url"])
+    gravador = Gravador(live["url"], live["pasta"])
     gravador.iniciar()
     ultima_limpeza = 0.0
+    st = api.status_lives[nome]
     try:
         while True:
             detector.checar()
             if time.time() - ultima_limpeza > 30:
-                limpar_segmentos()
+                limpar_segmentos(live["pasta"])
                 ultima_limpeza = time.time()
             if not gravador.ativo():
-                log.info("gravação parou; conferindo se a live acabou")
+                log.info("[%s] gravação parou; conferindo se a live acabou", nome)
                 time.sleep(15)
                 try:
-                    ainda = checar_live()
+                    ainda = checar_live(live["canal"])
                 except Bloqueado:
                     ainda = None
                 if ainda and ainda["id"] == live["id"]:
@@ -173,14 +177,23 @@ def sessao(live):
         parar.set()
         editor.fila.put(None)
         editor.join(timeout=900)  # termina os cortes que já estavam na fila
-        limpar_segmentos(tudo=True)
-        api.status_live.update(ao_vivo=False)
+        limpar_segmentos(live["pasta"], tudo=True)
+        api.status_lives.pop(nome, None)
 
-    duracao = (time.time() - api.status_live["desde"]) / 3600
+    duracao = (time.time() - st["desde"]) / 3600
     assistente.texto(
-        f"⏹️ Live acabou ({duracao:.1f}h). Cortes enviados: {editor.feitos}. "
+        f"⏹️ Live do *{nome}* acabou ({duracao:.1f}h). Cortes enviados: {editor.feitos}. "
         f"Descartados pela IA: {editor.descartados}. Mensagens de chat lidas: {chat.total}."
     )
+
+
+def _rodar_sessao(live, ativas):
+    try:
+        sessao(live)
+    except Exception:
+        log.exception("[%s] erro na sessão", live["nome"])
+    finally:
+        ativas.pop(live["canal"], None)
 
 
 def main():
@@ -195,27 +208,33 @@ def main():
         log.warning("sem cookies em %s: o YouTube pode bloquear o IP da VPS", config.COOKIES)
     if not config.GEMINI_API_KEY:
         log.warning("sem GEMINI_API_KEY: os cortes vão sem legenda e sem filtro da IA")
-    log.info("vigiando %s a cada %ss", config.CANAL_URL, config.INTERVALO_CHECAGEM_S)
+    log.info("vigiando %s a cada %ss (até %s lives ao mesmo tempo)", ", ".join(config.CANAIS), config.INTERVALO_CHECAGEM_S, config.MAX_LIVES)
 
+    ativas = {}  # canal -> thread da sessão
     ultimo_aviso_bloqueio = 0.0
     while True:
         limpar_pendentes_antigos()
-        try:
-            live = checar_live()
-        except Bloqueado:
-            log.error("YouTube bloqueou: pediu login (cookies vencidos ou ausentes)")
-            if time.time() - ultimo_aviso_bloqueio > 6 * 3600:
-                assistente.texto("⚠️ O YouTube bloqueou o robô de cortes (pediu login). Exporta o cookies.txt de novo e manda pra VPS.")
-                ultimo_aviso_bloqueio = time.time()
-            live = None
-        except Exception:
-            log.exception("erro ao checar a live")
-            live = None
-        if live:
-            sessao(live)
-        else:
-            time.sleep(config.INTERVALO_CHECAGEM_S)
-
+        for canal in config.CANAIS:
+            if canal in ativas:
+                continue
+            if len(ativas) >= config.MAX_LIVES:
+                break
+            try:
+                live = checar_live(canal)
+            except Bloqueado:
+                log.error("YouTube bloqueou: pediu login (cookies vencidos ou ausentes)")
+                if time.time() - ultimo_aviso_bloqueio > 6 * 3600:
+                    assistente.texto("⚠️ O YouTube bloqueou o robô de cortes (pediu login). Exporta o cookies.txt de novo e manda pra VPS.")
+                    ultimo_aviso_bloqueio = time.time()
+                break
+            except Exception:
+                log.exception("erro ao checar %s", canal)
+                continue
+            if live:
+                t = threading.Thread(target=_rodar_sessao, args=(live, ativas), daemon=True, name=f"sessao-{live['nome']}")
+                ativas[canal] = t
+                t.start()
+        time.sleep(config.INTERVALO_CHECAGEM_S)
 
 if __name__ == "__main__":
     main()

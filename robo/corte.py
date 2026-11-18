@@ -12,9 +12,9 @@ log = logging.getLogger("corte")
 FONTE = os.environ.get("FONTE", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 
 
-def preparar_janela(ini, fim, pasta):
+def preparar_janela(ini, fim, pasta, pasta_segmentos):
     """Cria a lista de pedaços que cobre [ini, fim]. Retorna (lista_txt, deslocamento_s, duracao_s) ou None."""
-    segs = segmentos_entre(ini, fim)
+    segs = segmentos_entre(ini, fim, pasta_segmentos)
     if not segs:
         return None
     os.makedirs(pasta, exist_ok=True)
