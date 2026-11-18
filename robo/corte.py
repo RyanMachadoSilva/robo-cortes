@@ -57,7 +57,11 @@ def escrever_srt(legendas, caminho):
             if not texto or fim <= ini:
                 continue
             n += 1
-            f.write(f"{n}\n{_tempo_srt(ini)} --> {_tempo_srt(fim)}\n{texto.upper()}\n\n")
+            f.write(f"{n}\n{_tempo_srt(ini)} --> {_tempo_srt(fim)}\n{texto.upper()}\n")
+            extra = str(leg.get("texto_extra") or "").strip()
+            if extra:  # segunda linha (ex.: inglês no modo "junto"), menor e amarela
+                f.write(f'<font color="#FFE14D" size="13">{extra.upper()}</font>\n')
+            f.write("\n")
     return n
 
 

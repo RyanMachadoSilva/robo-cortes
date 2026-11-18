@@ -51,6 +51,9 @@ CHAT_MIN_MSGS = _int("CHAT_MIN_MSGS", 10)               # mínimo de mensagens e
 AUDIO_PICO_DB = _float("AUDIO_PICO_DB", 10.0)           # volume X dB acima do normal
 PALAVRAS_MIN = _int("PALAVRAS_MIN", 5)                  # mensagens com "kkkk", "clipa"... em 10s
 
+# Versão em inglês: "separado" (um vídeo PT e outro EN), "junto" (as duas legendas no mesmo vídeo) ou "nao"
+VERSAO_EN = os.environ.get("VERSAO_EN", "separado").strip().lower()
+
 # IA (Gemini)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 MODELO = os.environ.get("MODELO", "gemini-3.5-flash-lite")

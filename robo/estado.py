@@ -56,11 +56,12 @@ def remover(cid):
     with _trava:
         c = _dados["cortes"].pop(str(cid), None)
         salvar()
-    if c and c.get("arquivo"):
-        try:
-            os.remove(c["arquivo"])
-        except FileNotFoundError:
-            pass
+    for chave in ("arquivo", "arquivo_en"):
+        if c and c.get(chave):
+            try:
+                os.remove(c[chave])
+            except FileNotFoundError:
+                pass
     return c
 
 

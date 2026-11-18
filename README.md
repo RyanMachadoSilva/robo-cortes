@@ -11,7 +11,7 @@ Você responde no WhatsApp:
 
 | Mensagem | O que faz |
 |---|---|
-| `ok 12` | Aprova e manda o título + descrição prontos para copiar |
+| `ok 12` | Aprova e manda o título + descrição prontos para copiar (em português e inglês) |
 | `não 12` | Descarta e apaga |
 | `postei 12` | Apaga da VPS (você já postou) |
 | `cortes` | Mostra se está gravando e os cortes pendentes |
@@ -55,6 +55,7 @@ Se os cookies vencerem, o robô avisa no WhatsApp.
 | `MIN_ENTRE_CORTES_S` | 600 | No máximo 1 corte a cada 10 min |
 | `CHAT_MULTIPLICADOR` / `CHAT_MIN_MSGS` | 3 / 10 | Sensibilidade ao chat |
 | `PALAVRAS_MIN` | 5 | Quantas mensagens com "kkkk", "clipa", "mds" em 10s disparam |
+| `VERSAO_EN` | separado | `separado`: manda também um vídeo com legenda, gancho e título em inglês. `junto`: as duas legendas no mesmo vídeo. `nao`: só português |
 | `CANAL_URL` | @gameplayrj | Outro canal |
 
 Depois de mudar: `docker compose up -d --force-recreate`.

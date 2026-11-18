@@ -26,9 +26,9 @@ Analise e responda SÓ com JSON neste formato:
   "fim": segundo onde deve terminar (logo depois da reação; corte entre 15 e 58 segundos),
   "titulo": "título chamativo para o Short, até 70 caracteres, sem aspas",
   "gancho": "texto curto para aparecer no topo do vídeo, até 30 caracteres",
-  "legendas": [{{"inicio": s, "fim": s, "texto": "fala"}}]
+  "legendas": [{{"inicio": s, "fim": s, "texto": "fala"{extra_leg}}}]{extra}
 }}
-Legendas: transcreva as falas entre "inicio" e "fim" em blocos de até 6 palavras, com tempos em segundos do áudio.
+Legendas: transcreva as falas entre "inicio" e "fim" em blocos de até 6 palavras, com tempos em segundos do áudio.{extra_regra}
 Se for só silêncio, conversa morna ou menu, "vale_corte": false."""
 
 
@@ -43,6 +43,17 @@ def _chamar(modelo, corpo, espera):
         return json.load(r)
 
 
+def _campos_ingles():
+    if config.VERSAO_EN not in ("separado", "junto"):
+        return {"extra_leg": "", "extra": "", "extra_regra": ""}
+    return {
+        "extra_leg": ', "texto_en": "a mesma fala traduzida para o inglês"',
+        "extra": (',\n  "titulo_en": "o título em inglês, chamativo para público gringo, até 70 caracteres",'
+                  '\n  "gancho_en": "o gancho em inglês, até 30 caracteres"'),
+        "extra_regra": " Em \"texto_en\", traduza de forma natural (gírias equivalentes em inglês), mantendo nomes próprios.",
+    }
+
+
 def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat):
     """Retorna o dicionário da IA, ou None se não deu para analisar (sem chave, sem cota...)."""
     global _pausado_ate
@@ -51,6 +62,7 @@ def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat):
     texto = PROMPT.format(
         titulo=titulo_live, canal=config.CANAL_URL.split("/")[-1], duracao=duracao, motivo=motivo,
         chat=" | ".join(amostra_chat[-40:]) or "(chat indisponível)",
+        **_campos_ingles(),
     )
     corpo = {
         "contents": [{"role": "user", "parts": [
