@@ -1,6 +1,5 @@
 """Lê o chat da live do YouTube em tempo real e passa as mensagens para o detector."""
 import logging
-import os
 import threading
 
 from . import config
@@ -21,7 +20,9 @@ class LeitorChat(threading.Thread):
             try:
                 from chat_downloader import ChatDownloader
 
-                cookies = config.COOKIES if os.path.exists(config.COOKIES) else None
+                from .live import arquivo_cookies
+
+                cookies = arquivo_cookies()
                 chat = ChatDownloader(cookies=cookies).get_chat(self.url, message_types=["text_message", "paid_message"])
                 log.info("lendo o chat")
                 for msg in chat:

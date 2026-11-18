@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import threading
 import time
@@ -17,10 +18,39 @@ class Bloqueado(Exception):
     """O YouTube pediu login ("confirme que você não é um robô")."""
 
 
+def arquivo_cookies():
+    """Cópia gravável do cookies.txt (o yt-dlp atualiza os cookies e a pasta /config é só leitura).
+    Se você mandar um cookies.txt novo, a cópia é refeita sozinha."""
+    if not os.path.exists(config.COOKIES):
+        return None
+    copia = os.path.join(config.DADOS, "cookies.txt")
+    if not os.path.exists(copia) or os.path.getmtime(config.COOKIES) > os.path.getmtime(copia):
+        shutil.copyfile(config.COOKIES, copia)
+        log.info("cookies carregados de %s", config.COOKIES)
+    return copia
+
+
+class _Silencioso:
+    """O yt-dlp imprime "ERROR: live vai começar em X horas", o que é normal: fica só no nosso log."""
+
+    def debug(self, msg):
+        pass
+
+    def info(self, msg):
+        pass
+
+    def warning(self, msg):
+        pass
+
+    def error(self, msg):
+        pass
+
+
 def _opcoes_ytdlp():
-    op = {"quiet": True, "no_warnings": True, "skip_download": True, "noplaylist": True}
-    if os.path.exists(config.COOKIES):
-        op["cookiefile"] = config.COOKIES
+    op = {"quiet": True, "no_warnings": True, "skip_download": True, "noplaylist": True, "logger": _Silencioso()}
+    cookies = arquivo_cookies()
+    if cookies:
+        op["cookiefile"] = cookies
     return op
 
 
@@ -55,7 +85,8 @@ class Gravador:
 
     def iniciar(self):
         os.makedirs(config.PASTA_SEGMENTOS, exist_ok=True)
-        cookies = f"--cookies {shlex.quote(config.COOKIES)}" if os.path.exists(config.COOKIES) else ""
+        arq = arquivo_cookies()
+        cookies = f"--cookies {shlex.quote(arq)}" if arq else ""
         saida = shlex.quote(os.path.join(config.PASTA_SEGMENTOS, "%s.ts"))
         cmd = (
             f"set -o pipefail; "
