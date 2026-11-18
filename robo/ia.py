@@ -17,6 +17,7 @@ Live: "{titulo}" (canal {canal}).
 O áudio anexado tem {duracao:.0f} segundos e foi gravado ao redor de um momento em que o chat explodiu ({motivo}).
 Mensagens do chat nesse momento: {chat}
 
+{instrucao_idioma}
 Analise e responda SÓ com JSON neste formato:
 {{
   "vale_corte": true/false,
@@ -43,8 +44,8 @@ def _chamar(modelo, corpo, espera):
         return json.load(r)
 
 
-def _campos_ingles():
-    if config.VERSAO_EN not in ("separado", "junto"):
+def _campos_ingles(idioma="pt"):
+    if idioma == "en" or config.VERSAO_EN not in ("separado", "junto"):
         return {"extra_leg": "", "extra": "", "extra_regra": ""}
     return {
         "extra_leg": ', "texto_en": "a mesma fala traduzida para o inglês"',
@@ -54,7 +55,13 @@ def _campos_ingles():
     }
 
 
-def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal=""):
+IDIOMA_EN = (
+    "IMPORTANTE: esta live é em INGLÊS e o corte vai para público gringo. Escreva \"titulo\", \"gancho\" e o "
+    "\"texto\" das legendas EM INGLÊS (as legendas são a transcrição em inglês do que é falado)."
+)
+
+
+def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal="", idioma="pt"):
     """Retorna o dicionário da IA, ou None se não deu para analisar (sem chave, sem cota...)."""
     global _pausado_ate
     if not config.GEMINI_API_KEY:
@@ -62,7 +69,8 @@ def analisar(audio_mp3, duracao, titulo_live, motivo, amostra_chat, canal=""):
     texto = PROMPT.format(
         titulo=titulo_live, canal=canal or config.CANAL_URL.split("/")[-1], duracao=duracao, motivo=motivo,
         chat=" | ".join(amostra_chat[-40:]) or "(chat indisponível)",
-        **_campos_ingles(),
+        instrucao_idioma=IDIOMA_EN if idioma == "en" else "",
+        **_campos_ingles(idioma),
     )
     corpo = {
         "contents": [{"role": "user", "parts": [

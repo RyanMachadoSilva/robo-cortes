@@ -1,6 +1,6 @@
 # Robô de cortes
 
-Vigia canais do YouTube (padrão: **GameplayRJ** e **Skorpion Gamer**) e grava até 2 lives ao mesmo tempo (os cortes são montados um por vez, para não pesar a VPS). Quando a live abre, grava em pedaços curtos, lê o chat e mede o volume do áudio. Quando o chat explode ("KKKK", "clipa", muita mensagem de uma vez) ou o volume dispara, ele:
+Vigia canais do YouTube (padrão: **GameplayRJ** em português e **IShowSpeed** em inglês, só lives com "GTA" no título) e grava até 2 lives ao mesmo tempo (os cortes são montados um por vez, para não pesar a VPS). Quando a live abre, grava em pedaços curtos, lê o chat e mede o volume do áudio. Quando o chat explode ("KKKK", "clipa", muita mensagem de uma vez) ou o volume dispara, ele:
 
 1. Pega ~1 minuto ao redor do momento
 2. Manda o áudio + o chat para o Gemini, que dá uma nota, escolhe o início e o fim, escreve título, gancho e legendas
@@ -11,7 +11,7 @@ Você responde no WhatsApp:
 
 | Mensagem | O que faz |
 |---|---|
-| `ok 12` | Aprova e manda o título + descrição prontos para copiar (em português e inglês) |
+| `ok 12` | Aprova e manda o título + descrição prontos para copiar |
 | `não 12` | Descarta e apaga |
 | `postei 12` | Apaga da VPS (você já postou) |
 | `cortes` | Mostra se está gravando e os cortes pendentes |
@@ -55,8 +55,9 @@ Se os cookies vencerem, o robô avisa no WhatsApp.
 | `MIN_ENTRE_CORTES_S` | 600 | No máximo 1 corte a cada 10 min |
 | `CHAT_MULTIPLICADOR` / `CHAT_MIN_MSGS` | 3 / 10 | Sensibilidade ao chat |
 | `PALAVRAS_MIN` | 5 | Quantas mensagens com "kkkk", "clipa", "mds" em 10s disparam |
-| `VERSAO_EN` | separado | `separado`: manda também um vídeo com legenda, gancho e título em inglês. `junto`: as duas legendas no mesmo vídeo. `nao`: só português |
-| `CANAIS` | @gameplayrj,@skorpionoficial | Canais vigiados, separados por vírgula |
+| `VERSAO_EN` | nao | Para canais em português: `separado` manda também um vídeo em inglês, `junto` põe as duas legendas no mesmo vídeo |
+| `CANAIS` | @gameplayrj:pt,@IShowSpeed:en | Canais vigiados e o idioma do corte de cada um (`pt` ou `en`) |
+| `SO_TITULO_COM` | gta | Só grava lives com essa palavra no título (vazio = todas) |
 | `MAX_LIVES` | 2 | Quantas lives gravar ao mesmo tempo (KVM 1: 2; KVM 2: 4) |
 
 Depois de mudar: `docker compose up -d --force-recreate`.

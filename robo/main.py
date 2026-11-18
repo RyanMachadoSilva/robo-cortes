@@ -61,7 +61,8 @@ class Editor(threading.Thread):
             lista, desl, dur = janela
             audio = corte.extrair_audio(lista, desl, dur)
             chat = self.detector_ref().textos(momento - 30, momento + config.ATRASO_CHAT_S + 10)
-            r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"])
+            idioma = self.live.get("idioma", "pt")
+            r = ia.analisar(audio, dur, self.live["titulo"], motivo, chat, self.live["nome"], idioma)
 
             titulo_en = gancho_en = ""
             if r is None:  # IA indisponível: manda o trecho inteiro, sem legenda
@@ -90,7 +91,7 @@ class Editor(threading.Thread):
 
             os.makedirs(config.PASTA_CORTES, exist_ok=True)
             saida = os.path.join(config.PASTA_CORTES, f"corte_{self.live['nome']}_{int(momento)}.mp4")
-            tem_en = any(l.get("texto_en") for l in legendas)
+            tem_en = idioma == "pt" and any(l.get("texto_en") for l in legendas)
             leg_pt = [{**l, "texto_extra": l.get("texto_en") if config.VERSAO_EN == "junto" else ""} for l in legendas]
             saida_en = None
             with RENDER:
@@ -106,7 +107,9 @@ class Editor(threading.Thread):
             nome_canal = self.live["nome"]
             cid = estado.novo_corte(
                 arquivo=saida, titulo=titulo, nota=nota, live=self.live["url"],
-                descricao=f"{titulo}\n\nCorte da live do {nome_canal}: {self.live['url']}\n#gta6 #shorts #{nome_canal.lower()}",
+                descricao=(f"{titulo}\n\nClip from {nome_canal}'s live stream: {self.live['url']}\n#gta6 #shorts #{nome_canal.lower()}"
+                           if idioma == "en" else
+                           f"{titulo}\n\nCorte da live do {nome_canal}: {self.live['url']}\n#gta6 #shorts #{nome_canal.lower()}"),
                 arquivo_en=saida_en, titulo_en=titulo_en if (saida_en or tem_en) else "",
                 descricao_en=(f"{titulo_en}\n\nClip from {nome_canal}'s live stream: {self.live['url']}\n#gta6 #shorts #gaming"
                               if titulo_en and (saida_en or tem_en) else ""),
@@ -115,7 +118,7 @@ class Editor(threading.Thread):
             if nome_canal in api.status_lives:
                 api.status_lives[nome_canal]["cortes"] = self.feitos
             legenda = (
-                f"🎬 *Corte #{cid}* · {nome_canal}{f' (nota {nota}/10)' if nota is not None else ''}\n{titulo}\n_{sobre}_\n\n"
+                f"🎬 *Corte #{cid}* · {nome_canal}{' 🇺🇸' if idioma == 'en' else ''}{f' (nota {nota}/10)' if nota is not None else ''}\n{titulo}\n_{sobre}_\n\n"
                 f"Responde *ok {cid}*, *não {cid}* ou *postei {cid}*"
             )
             if not assistente.video(saida, legenda, cid):
@@ -211,6 +214,7 @@ def main():
     log.info("vigiando %s a cada %ss (até %s lives ao mesmo tempo)", ", ".join(config.CANAIS), config.INTERVALO_CHECAGEM_S, config.MAX_LIVES)
 
     ativas = {}  # canal -> thread da sessão
+    ignoradas = set()  # lives fora do filtro SO_TITULO_COM (para não logar toda hora)
     ultimo_aviso_bloqueio = 0.0
     while True:
         limpar_pendentes_antigos()
@@ -229,6 +233,11 @@ def main():
                 break
             except Exception:
                 log.exception("erro ao checar %s", canal)
+                continue
+            if live and config.SO_TITULO_COM and not any(p in live["titulo"].lower() for p in config.SO_TITULO_COM):
+                if live["id"] not in ignoradas:
+                    ignoradas.add(live["id"])
+                    log.info("[%s] live sem %s no título, ignorando: %s", live["nome"], "/".join(config.SO_TITULO_COM), live["titulo"])
                 continue
             if live:
                 t = threading.Thread(target=_rodar_sessao, args=(live, ativas), daemon=True, name=f"sessao-{live['nome']}")

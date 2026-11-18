@@ -82,7 +82,8 @@ def checar_live(canal_url=None):
         return None
     if info.get("is_live") or info.get("live_status") == "is_live":
         return {"id": info["id"], "titulo": info.get("title") or "", "url": info.get("webpage_url") or url,
-                "canal": canal_url, "nome": nome_canal(canal_url), "pasta": pasta_canal(canal_url)}
+                "canal": canal_url, "nome": nome_canal(canal_url), "pasta": pasta_canal(canal_url),
+                "idioma": config.IDIOMAS.get(canal_url, "pt")}
     return None
 
 
