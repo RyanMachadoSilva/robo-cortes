@@ -222,6 +222,9 @@ def sessao(live):
             if time.time() - ultima_limpeza > 30:
                 limpar_segmentos(live["pasta"])
                 ultima_limpeza = time.time()
+            if estado.pausado():
+                log.info("[%s] robô pausado: parando a gravação", nome)
+                break
             if not avisou and time.time() - inicio > 300:  # depois de 5 min, avisa se algo não está funcionando
                 avisou = True
                 problemas = []
@@ -292,6 +295,9 @@ def main():
     ultimo_aviso_bloqueio = 0.0
     while True:
         limpar_pendentes_antigos()
+        if estado.pausado():
+            time.sleep(10)
+            continue
         for canal in config.CANAIS:
             if canal in ativas:
                 continue

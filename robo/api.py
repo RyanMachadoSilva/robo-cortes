@@ -37,6 +37,18 @@ def executar(acao, cid=None):
         linhas = [l[15:] if len(l) > 15 else l for l in list(memoria_log.linhas)[-25:]]  # tira a data
         return "*Últimas linhas do log:*\n" + ("\n".join(l[:160] for l in linhas) or "(vazio)")
     global _limpeza_pedida
+    if acao == "pausar":
+        if estado.pausado():
+            return "O robô já está pausado. Pra voltar, manda *retomar robô*."
+        estado.pausar(True)
+        gravando = ", ".join(status_lives) or ""
+        return ("⏸️ Robô pausado. " + (f"Parando a gravação de {gravando} (os cortes que já estavam na fila ainda chegam). "
+                                       if gravando else "") + "Pra voltar, manda *retomar robô*.")
+    if acao == "retomar":
+        if not estado.pausado():
+            return "O robô já está rodando."
+        estado.pausar(False)
+        return "▶️ Robô de volta. Em até 90 segundos ele confere se tem live aberta."
     if acao == "limpar":
         import glob
         import os
@@ -68,6 +80,8 @@ def executar(acao, cid=None):
         return "\n\n".join(f() for f in list(diagnosticos.values()))
     if acao in ("status", "cortes"):
         pend = [c for c in estado.cortes() if c["status"] in ("pendente", "aprovado")]
+        if estado.pausado():
+            return "*Robô de cortes*: ⏸️ pausado. Manda *retomar robô* pra voltar."
         linhas = ["*Robô de cortes*: vigiando " + ", ".join(c.split("/")[-1] for c in config.CANAIS)]
         for nome, st in list(status_lives.items()):
             linhas.append(f"🔴 {nome}: {st['titulo'][:60]} ({st['cortes']} cortes)")
@@ -102,7 +116,7 @@ def executar(acao, cid=None):
     if acao == "postei":
         estado.remover(c["id"])
         return f"🚀 Boa! Apaguei o corte #{c['id']} da VPS."
-    return "Comandos: ok, não, postei (com o número do corte), cortes, corte agora, limpar cortes, diag ou log."
+    return "Comandos: ok, não, postei (com o número do corte), cortes, corte agora, pausar robô, retomar robô, limpar cortes, diag ou log."
 
 
 class _Handler(BaseHTTPRequestHandler):

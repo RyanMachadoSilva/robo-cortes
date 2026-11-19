@@ -106,6 +106,17 @@ def salvar_camera(nome, caixa):
         salvar()
 
 
+def pausado():
+    with _trava:
+        return bool(_dados.get("pausado"))
+
+
+def pausar(valor=True):
+    with _trava:
+        _dados["pausado"] = bool(valor)
+        salvar()
+
+
 def ultimo_pendente():
     pend = [c for c in cortes() if c["status"] in ("pendente", "aprovado")]
     return pend[-1] if pend else None
